@@ -10,7 +10,7 @@ import {
   useRoomActions,
   useRoomStatus,
 } from '../sdk'
-import { formatVisitTime } from '../lib/visits'
+import type { Intake } from '../lib/visits'
 import type { VisitSession } from '../session/types'
 
 /* What you see between mounting the meeting and being in the visit.
@@ -26,10 +26,17 @@ export interface RoomGateProps {
   /** The visit's room id, for the doctor's admit and end calls. */
   roomId: string
   name: string
-  onExit: (reason: ExitReason) => void
+  /** The camera stream handed to the meeting, for the lobby's self-view. */
+  camera?: MediaStream
+  /** True for a patient who came through intake and devices. */
+  stepped: boolean
+  intake: Intake | null
+  onIntakeChange: (intake: Intake) => void
+  /** inRoomMs: how long this attempt was in the room, 0 if it never got in. */
+  onExit: (reason: ExitReason, inRoomMs: number) => void
 }
 
-export function RoomGate({ session, roomId, name, onExit }: RoomGateProps) {
+export function RoomGate({ session, roomId, name, camera, stepped, intake, onIntakeChange, onExit }: RoomGateProps) {
   const status = useRoomStatus()
   const decision = useEntryDecision()
   const leaveReason = useLeaveReason()
@@ -51,6 +58,12 @@ export function RoomGate({ session, roomId, name, onExit }: RoomGateProps) {
     onExitRef.current = onExit
   })
 
+  /* When this attempt first reached the room, for the ended screen. */
+  const enteredAt = useRef<number | null>(null)
+  useEffect(() => {
+    if (status === 'connected' && enteredAt.current === null) enteredAt.current = Date.now()
+  }, [status])
+
   const exit = useCallback(
     (reason: ExitReason) => {
       if (exited.current) return
@@ -59,7 +72,7 @@ export function RoomGate({ session, roomId, name, onExit }: RoomGateProps) {
          calling leave() anyway throws ERROR_ALREADY_IN_REQUESTED_STATE. Only
          the exits we decide ourselves are still connected at this point. */
       if (reason !== 'ended' && reason !== 'evicted') actions.leave()
-      onExitRef.current(reason)
+      onExitRef.current(reason, enteredAt.current === null ? 0 : Date.now() - enteredAt.current)
     },
     [actions],
   )
@@ -109,9 +122,14 @@ export function RoomGate({ session, roomId, name, onExit }: RoomGateProps) {
   if (!isDoctor && (status === 'connecting' || status === 'reconnecting')) {
     return (
       <LobbyWaiting
-        doctor={`Dr. ${session.doctorName}`}
-        when={formatVisitTime(session.scheduledAt)}
+        roomId={roomId}
+        doctorName={session.doctorName}
+        scheduledAt={session.scheduledAt}
         name={name}
+        camera={camera}
+        stepped={stepped}
+        intake={intake}
+        onIntakeChange={onIntakeChange}
         onAskAgain={() => exit('ask-again')}
         onLeave={() => exit('left')}
       />

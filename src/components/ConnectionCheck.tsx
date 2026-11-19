@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react'
 import { Badge, Button, type BadgeTone } from '../design/ui'
 import type { PrecallTestPart, PrecallTestState } from '../sdk'
 
-/* "Check your connection": the pre-call test, as three rows.
+/* The pre-call test as one compact row: "Connection" and the delay on the
+   left, a chip each for camera, mic and network on the right.
 
    It never gates anything. Join stays live while the test runs and after a
    bad result; the most it does is suggest a fix. */
@@ -59,7 +59,7 @@ export function ConnectionCheck({
     else if (r.microphone?.ok === false) hint = FAILURE_HINT.microphone
     detail = [
       r.rttMs !== null && `${r.rttMs} ms delay`,
-      r.lossPct !== null && `${r.lossPct}% loss`,
+      r.lossPct !== null && (r.lossPct === 0 ? 'no loss' : `${r.lossPct}% loss`),
     ]
       .filter(Boolean)
       .join(', ')
@@ -74,16 +74,20 @@ export function ConnectionCheck({
   }
 
   const settled = state.status === 'done' || state.status === 'failed'
+  const status = state.status === 'running' ? 'Checking your connection' : detail
 
   return (
-    <section aria-label="Connection check" className="flex flex-col gap-3 rounded-xl border border-hairline bg-card p-4 shadow-sm">
-      <div className="flex min-h-8 items-center justify-between gap-3">
-        <h2 className="text-base font-semibold text-ink">Check your connection</h2>
-        {settled && (
-          <Button variant="text" className="-mr-2 max-sm:h-10" onClick={onRunAgain}>
-            Run again
-          </Button>
-        )}
+    <section aria-label="Connection check" className="flex flex-col gap-2 rounded-xl border border-hairline px-3.5 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex min-w-0 flex-col">
+          <span className="text-base font-medium text-ink">Connection</span>
+          {status && <span className="text-sm text-ink-tertiary">{status}</span>}
+        </span>
+        <ul className="m-0 flex shrink-0 list-none flex-wrap justify-end gap-1.5 p-0" aria-live="polite">
+          <Chip label="Camera" level={camera} />
+          <Chip label="Mic" level={microphone} />
+          <Chip level={network} />
+        </ul>
       </div>
 
       {state.status === 'running' && (
@@ -96,34 +100,37 @@ export function ConnectionCheck({
           className="h-1 overflow-hidden rounded-pill bg-muted"
         >
           <div
-            className="h-full rounded-pill bg-accent transition-[width] duration-500 ease-linear"
+            className="h-full rounded-pill bg-accent-mid transition-[width] duration-500 ease-linear"
             style={{ width: `${state.progress * 100}%` }}
           />
         </div>
       )}
 
-      <ul className="flex flex-col gap-2">
-        <Row label="Camera" level={camera} />
-        <Row label="Microphone" level={microphone} />
-        <Row label="Network" level={network}>
-          {detail && <span className="text-sm text-ink-tertiary">{detail}</span>}
-        </Row>
-      </ul>
-
-      {hint && <p className="text-sm text-ink-secondary">{hint}</p>}
+      {(hint || settled) && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="m-0 text-sm text-ink-secondary">{hint}</p>
+          {settled && (
+            <Button variant="text" className="-mr-2 shrink-0 max-sm:h-10" onClick={onRunAgain}>
+              Run again
+            </Button>
+          )}
+        </div>
+      )}
     </section>
   )
 }
 
-function Row({ label, level, children }: { label: string; level: Level; children?: ReactNode }) {
+/* A device chip names the device and takes the level's tone; "Off" says so
+   in words. The network chip is the level itself ("Good"). The full level is
+   always in the accessible name. */
+function Chip({ label, level }: { label?: string; level: Level }) {
+  const text = !label ? level.label : level === OFF ? `${label} off` : label
   return (
-    <li className="flex items-center justify-between gap-3">
-      <span className="flex min-w-0 flex-col">
-        <span className="text-base text-ink">{label}</span>
-        {children}
-      </span>
-      <Badge tone={level.tone} dot aria-live="polite">
-        {level.label}
+    <li className="flex">
+      <Badge tone={level.tone}>
+        {text}
+        {label && level !== OFF && <span className="sr-only">: {level.label}</span>}
+        {!label && <span className="sr-only"> network</span>}
       </Badge>
     </li>
   )
