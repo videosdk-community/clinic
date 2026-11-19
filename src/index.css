@@ -306,6 +306,11 @@
   :root:has([data-side-panel="docked"]) .toast-stack {
     left: calc((100% - 320px) / 2);
   }
+  /* The doctor's rail is 360px and docked on desktop. On a tablet it floats
+     over the stage, so the toast stays centred on the window. */
+  :root:has([data-room-rail="docked"]) .toast-stack {
+    left: calc((100% - 360px) / 2);
+  }
   @media (max-width: 767px) {
     :root:has([data-room]) .toast-stack {
       bottom: auto;

@@ -8,10 +8,21 @@ import { LiveTile } from '../components/LiveTile'
 import { MediaRequestPrompt } from '../components/MediaRequestPrompt'
 import { RoomIcon } from '../components/icons'
 import { RecordingConsentPrompt } from '../components/RecordingConsentPrompt'
+import { PatientPanel, RoomRail, type RailTab } from '../components/RoomRail'
 import { ScreenStage } from '../components/ScreenStage'
+import { ShowMePrompt } from '../components/ShowMePrompt'
 import { SidePanel } from '../components/SidePanel'
-import { BottomSheet, Button, Spinner, useToast } from '../design/ui'
-import { admitPatient, endVisit, wasAdmitted } from '../lib/visits'
+import { Avatar, BottomSheet, Button, Spinner, useToast } from '../design/ui'
+import { firstName } from '../lib/names'
+import {
+  admitPatient,
+  endVisit,
+  formatVisitTime,
+  getMyVisit,
+  visitLink,
+  wasAdmitted,
+  type Visit,
+} from '../lib/visits'
 import { useDeviceClass } from '../lib/useDeviceClass'
 import { useElapsedSeconds } from '../lib/useElapsedSeconds'
 import { useExitGuard } from '../lib/useExitGuard'
@@ -31,6 +42,7 @@ import {
 } from '../sdk'
 import type { VisitSession } from '../session/types'
 import { useRecordingConsent } from './useRecordingConsent'
+import { useShowMe } from './useShowMe'
 
 /* The visit: two people, one stage.
 
@@ -51,6 +63,15 @@ function formatClock(total: number) {
   const h = Math.floor(total / 3600)
   const pad = (n: number) => String(n).padStart(2, '0')
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`
+}
+
+/* "18:30" for a visit today, the date too otherwise. */
+function scheduledLabel(iso: string) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toDateString() === new Date().toDateString()
+    ? d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    : formatVisitTime(iso)
 }
 
 export interface VisitRoomProps {
@@ -78,9 +99,15 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
   const toast = useToast()
   const deviceClass = useDeviceClass()
   const isPhone = deviceClass === 'phone'
-  const elapsed = formatClock(useElapsedSeconds())
+  const seconds = useElapsedSeconds()
+  const elapsed = formatClock(seconds)
 
+  /* The patient's chat column, and the doctor's chat sheet on a phone. */
   const [chatOpen, setChatOpen] = useState(false)
+  /* The doctor's rail: which tab, and on a tablet whether it is out. */
+  const [railTab, setRailTab] = useState<RailTab>('patient')
+  const [railOpen, setRailOpen] = useState(false)
+  const [patientSheet, setPatientSheet] = useState(false)
 
   /* Asked only when a Back gesture is caught, never by the Leave button. */
   const [confirmLeave, setConfirmLeave] = useState(false)
@@ -100,6 +127,13 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
 
   /* The doctor asks whoever is on the stage, never themselves. */
   const consent = useRecordingConsent(roomId, isDoctor, isDoctor ? mainId : null, session.patientName)
+  const showMe = useShowMe(isDoctor, isDoctor ? mainId : null, session.patientName)
+
+  /* When whoever is on the stage got there, on the room's own clock, for
+     "In the visit · 6 min". Adjusted during render, so a rejoin under a new
+     id starts over. */
+  const [arrival, setArrival] = useState({ id: mainId, at: seconds })
+  if (arrival.id !== mainId) setArrival({ id: mainId, at: seconds })
 
   /* The doctor's exit ends the visit for both people: end(), never leave()
      after it - the room is already closing, and leave() on a closing room
@@ -179,6 +213,39 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
   }, [isDoctor, waiting, unknownKnocks, roomId, actions])
   const knocks = waiting.filter((r) => unknownKnocks.has(r.participantId))
 
+  /* The visit row, for the intake. The patient can still edit it from the
+     lobby while knocking, so it is read again every 5s while a knock is up -
+     and once as each knock appears and clears. The doctor-only read is RLS. */
+  const [visit, setVisit] = useState<Visit | null>(null)
+  const hasKnocks = knocks.length > 0
+  useEffect(() => {
+    if (!isDoctor) return
+    let live = true
+    const load = () =>
+      getMyVisit(roomId)
+        .then((v) => live && setVisit(v))
+        .catch((err: unknown) => console.warn('[clinic] could not read the visit', err))
+    void load()
+    const poll = hasKnocks ? window.setInterval(() => void load(), 5000) : undefined
+    return () => {
+      live = false
+      window.clearInterval(poll)
+    }
+  }, [isDoctor, roomId, hasKnocks])
+
+  /* The rail shows the intake only when it came from the person in front of
+     the doctor: the one on the stage, or else the one knocking. With nobody
+     here yet there is no one to mismatch, so it shows whatever was sent. */
+  const intakeFrom = mainId ?? knocks[0]?.participantId ?? null
+  const railIntake =
+    visit && (intakeFrom === null || visit.intakeBy === intakeFrom) ? visit : null
+
+  const copyLink = () =>
+    navigator.clipboard
+      .writeText(visitLink(roomId))
+      .then(() => toast('Visit link copied', 'success'))
+      .catch(() => toast('Could not copy the link. Copy it from the dashboard.', 'danger'))
+
   /* Mute is real; unmute only asks, and the patient answers on their side.
      It sits beside the patient's name chip in the same dark glass, so it reads
      as "about this person". The ::after widens the hit area to 40px for a
@@ -203,6 +270,33 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
   }))
   const send = (text: string) => actions.publish(CHAT_TOPIC, text)
 
+  const patientPanel = {
+    name: session.patientName,
+    patientId: mainId,
+    minutesIn: Math.floor((seconds - arrival.at) / 60),
+    knocking: hasKnocks,
+    intake: railIntake?.intake ?? null,
+    intakeAt: railIntake?.intakeAt ?? null,
+    recording: recording ? 'on' : consent.pending ? 'asking' : 'off',
+    closeLook: showMe.active,
+  } as const
+  const patientFirst = firstName(session.patientName)
+  const knocker = knocks[0]
+  const when = scheduledLabel(session.scheduledAt)
+
+  /* The doctor's chat lives in the rail on tablet and desktop. Desktop docks
+     it and needs no button; a tablet slides it out over the stage, opening on
+     Chat since that is what the button says. */
+  const toggleChat = isPhone
+    ? () => setChatOpen(!chatOpen)
+    : deviceClass === 'tablet'
+      ? () => {
+          const closing = railOpen && railTab === 'chat'
+          setRailOpen(!closing)
+          if (!closing) setRailTab('chat')
+        }
+      : undefined
+
   const pip = isPhone ? 'aspect-[3/4] w-24' : 'aspect-video w-44 lg:w-56'
 
   return (
@@ -225,19 +319,42 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
                     selfId={localId}
                     /* A phone is portrait and the camera is landscape, so
                        cover fills it; a wide screen letterboxes instead of
-                       cropping someone's face. */
-                    fit={isPhone ? 'cover' : 'contain'}
+                       cropping someone's face. A close look never crops:
+                       the edge of a rash is the point. */
+                    fit={isPhone && !showMe.active ? 'cover' : 'contain'}
                     action={moderate}
                     className="h-full w-full"
                   />
+                </div>
+              ) : isDoctor ? (
+                /* Who the doctor is waiting for, and the link in case they
+                   never got it. A knock turns the heading into the news. */
+                <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-6 text-center">
+                  <div className="relative mb-3">
+                    <span aria-hidden className="absolute -inset-3 rounded-pill border-2 border-solid border-accent-soft" />
+                    <span aria-hidden className="absolute -inset-6 rounded-pill border border-solid border-accent-wash" />
+                    <Avatar name={knocker?.name || session.patientName} size={96} />
+                  </div>
+                  <div className="mt-3 flex max-w-[360px] flex-col gap-1">
+                    <h2 className="text-2xl font-semibold text-ink">
+                      {knocker ? `${knocker.name.trim() || 'Someone'} is knocking` : `Waiting for ${otherName}`}
+                    </h2>
+                    <p className="text-base text-ink-secondary">
+                      {when && `Scheduled for ${when}. `}
+                      {knocker
+                        ? 'Check the name and their intake, then let them in.'
+                        : 'They will knock when they open the link. You decide who comes in.'}
+                    </p>
+                  </div>
+                  <Button variant="secondary" size="md" iconLeft={<RoomIcon name="copy" size={16} />} onClick={copyLink}>
+                    Copy visit link
+                  </Button>
                 </div>
               ) : (
                 <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 p-6 text-center">
                   <span className="text-lg font-semibold text-ink">Waiting for {otherName}</span>
                   <span className="max-w-[360px] text-base text-ink-secondary">
-                    {isDoctor
-                      ? 'They will knock when they open the link. You decide who comes in.'
-                      : 'They will be with you shortly.'}
+                    They will be with you shortly.
                   </span>
                 </div>
               )}
@@ -246,7 +363,7 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
                   phone the control bar's Stop is one sheet away, and either
                   person stopping is a direct call, not a request. A patient
                   who joins mid-recording sees it from the SDK's state. */}
-              {(recording || reconnecting || consent.pending) && (
+              {(recording || reconnecting || consent.pending || showMe.pending || showMe.active) && (
                 <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex flex-wrap justify-center gap-2 px-3">
                   {recording && (
                     <span
@@ -279,6 +396,40 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
                       </Button>
                     </span>
                   )}
+                  {showMe.pending && (
+                    <span
+                      role="status"
+                      className="pointer-events-auto flex min-h-9 max-w-full items-center gap-2 rounded-pill border border-line bg-card py-1 pl-3.5 pr-1.5 text-sm text-ink-secondary"
+                      style={{ boxShadow: 'var(--elevation-popover)' }}
+                    >
+                      <Spinner size={14} />
+                      <span className="min-w-0">Waiting for {session.patientName} to show you</span>
+                      <Button size="md" variant="secondary" onClick={showMe.cancel}>
+                        Cancel
+                      </Button>
+                    </span>
+                  )}
+                  {/* White on whatever the camera shows, so it reads on a
+                      close-up of anything. Done hands the front camera back. */}
+                  {showMe.active && (
+                    <span
+                      role="status"
+                      className="pointer-events-auto flex min-h-11 max-w-full items-center gap-3 rounded-pill bg-card py-1.5 pl-4 pr-1.5 text-base font-medium text-accent-ink"
+                      style={{ boxShadow: 'var(--elevation-popover)' }}
+                    >
+                      <RoomIcon name="scan" size={16} />
+                      <span className="min-w-0">
+                        Close look · {patientFirst}'s {showMe.active.back ? 'back camera' : 'camera'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={showMe.end}
+                        className="h-8 shrink-0 cursor-pointer rounded-pill border-0 bg-accent px-4 text-base font-medium text-accent-fg hover:bg-accent-soft"
+                      >
+                        Done
+                      </button>
+                    </span>
+                  )}
                   {reconnecting && (
                     <span
                       role="status"
@@ -299,6 +450,7 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
                   <KnockCard
                     waiting={knocks}
                     expectedName={session.patientName}
+                    visit={visit}
                     onRespond={(id, allow) => void respond(id, allow)}
                   />
                 </div>
@@ -331,6 +483,18 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
             />
           )}
 
+          {/* One question at a time: Show me waits behind recording consent. */}
+          {showMe.asking && !consent.asking && (
+            <ShowMePrompt
+              doctorName={session.doctorName}
+              hasBack={showMe.hasBack}
+              busy={showMe.busy}
+              isPhone={isPhone}
+              onAccept={showMe.accept}
+              onDecline={showMe.decline}
+            />
+          )}
+
           {mediaRequest && (
             <MediaRequestPrompt
               request={mediaRequest}
@@ -359,16 +523,46 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
                the recording begins on the patient's allow, see
                useRecordingConsent. */
             onToggleRecording={recording ? actions.stopRecording : consent.request}
-            chatOpen={chatOpen}
-            onToggleChat={() => setChatOpen(!chatOpen)}
+            chatOpen={isDoctor && !isPhone ? railOpen && railTab === 'chat' : chatOpen}
+            onToggleChat={isDoctor ? toggleChat : () => setChatOpen(!chatOpen)}
+            showMe={
+              isDoctor
+                ? {
+                    state: showMe.active ? 'active' : showMe.pending ? 'pending' : 'idle',
+                    disabled: !mainId,
+                    onClick: showMe.active ? showMe.end : showMe.request,
+                  }
+                : undefined
+            }
+            onShowPatient={isDoctor && isPhone ? () => setPatientSheet(true) : undefined}
             onLeave={exit}
           />
         </main>
 
-        {isPhone ? (
-          <BottomSheet open={chatOpen} onClose={() => setChatOpen(false)} title="Messages">
-            <ChatPanel messages={chatMessages} onSend={send} />
-          </BottomSheet>
+        {isDoctor && !isPhone ? (
+          <RoomRail
+            overlay={deviceClass === 'tablet'}
+            open={deviceClass === 'desktop' || railOpen}
+            tab={railTab}
+            onTab={setRailTab}
+            onHide={() => setRailOpen(false)}
+            messages={chatMessages}
+            onSend={send}
+            patient={patientPanel}
+          />
+        ) : isPhone ? (
+          <>
+            <BottomSheet open={chatOpen} onClose={() => setChatOpen(false)} title="Messages">
+              <ChatPanel messages={chatMessages} onSend={send} />
+            </BottomSheet>
+            {isDoctor && (
+              <BottomSheet open={patientSheet} onClose={() => setPatientSheet(false)} title="Patient">
+                <div className="p-4">
+                  <PatientPanel {...patientPanel} />
+                </div>
+              </BottomSheet>
+            )}
+          </>
         ) : (
           chatOpen && (
             <SidePanel

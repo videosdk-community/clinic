@@ -1,4 +1,5 @@
 import { KnockRow } from './KnockRow'
+import type { Visit } from '../lib/visits'
 import type { EntryRequest } from '../sdk'
 
 /* The doctor's waiting room, floating over the stage.
@@ -12,10 +13,12 @@ export interface KnockCardProps {
   waiting: readonly EntryRequest[]
   /** visits.patient_name - the name the doctor booked the visit under. */
   expectedName: string
+  /** The visit row, for the intake. Null until it has loaded. */
+  visit: Visit | null
   onRespond: (id: string, allow: boolean) => void
 }
 
-export function KnockCard({ waiting, expectedName, onRespond }: KnockCardProps) {
+export function KnockCard({ waiting, expectedName, visit, onRespond }: KnockCardProps) {
   if (waiting.length === 0) return null
 
   return (
@@ -25,7 +28,7 @@ export function KnockCard({ waiting, expectedName, onRespond }: KnockCardProps) 
       className="pointer-events-auto w-[360px] max-w-[calc(100vw-40px)] overflow-y-auto rounded-2xl border border-line bg-card"
       style={{ boxShadow: 'var(--elevation-popover)' }}
     >
-      <div className="px-4 pb-1 pt-3 text-sm font-semibold text-ink">
+      <div className="px-4 pb-1 pt-3.5 text-sm font-semibold uppercase tracking-wide text-accent-strong">
         {waiting.length === 1 ? 'Waiting to join' : `Waiting to join (${waiting.length})`}
       </div>
 
@@ -35,6 +38,7 @@ export function KnockCard({ waiting, expectedName, onRespond }: KnockCardProps) 
             key={request.participantId}
             request={request}
             expectedName={expectedName}
+            intake={visit?.intakeBy === request.participantId ? visit.intake : null}
             onRespond={onRespond}
           />
         ))}

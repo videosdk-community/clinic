@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { IntakeBrief } from './RoomRail'
 import { Avatar, Button, cn } from '../design/ui'
+import type { Intake } from '../lib/visits'
 import type { EntryRequest } from '../sdk'
 
 /* One knock, with the two buttons that answer it.
@@ -9,17 +11,23 @@ import type { EntryRequest } from '../sdk'
    by the client and proves nothing on its own - so both are written out in
    full, on their own lines, and never truncated. When they differ (ignoring
    case and spacing) the row turns to the warning tone and says so, because a
-   mismatch is exactly the case the check exists for. */
+   mismatch is exactly the case the check exists for.
+
+   Under the names, the intake this knocker sent from the lobby, if any. The
+   card is handed only an intake whose sender is this participant, so a
+   stranger's knock never shows the patient's reason for visiting. */
 
 const normalise = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase()
 
 export interface KnockRowProps {
   request: EntryRequest
   expectedName: string
+  /** The intake this participant sent, or null. */
+  intake: Intake | null
   onRespond: (id: string, allow: boolean) => void
 }
 
-export function KnockRow({ request, expectedName, onRespond }: KnockRowProps) {
+export function KnockRow({ request, expectedName, intake, onRespond }: KnockRowProps) {
   /* Optimistic locally too. A decision is a round trip, and a doctor who sees
      no feedback clicks again - which is how someone gets admitted and then
      denied. */
@@ -55,6 +63,12 @@ export function KnockRow({ request, expectedName, onRespond }: KnockRowProps) {
           ? 'The names do not match. Check who this is before you admit them.'
           : 'Matches the name on the booking.'}
       </p>
+
+      {intake ? (
+        <IntakeBrief intake={intake} />
+      ) : (
+        <p className="text-sm text-ink-tertiary">No intake sent.</p>
+      )}
 
       <div className="grid grid-cols-2 gap-2">
         <Button size="lg" variant="secondary" disabled={answering} onClick={() => respond(false)}>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
-import { useNetworkQuality, useParticipantView, useTrack, type NetworkQuality } from '../sdk'
+import { useLocalDevices, useNetworkQuality, useParticipantView, useTrack, type NetworkQuality } from '../sdk'
 import { RoomIcon } from './icons'
 import { Avatar, cn } from '../design/ui'
 
@@ -58,6 +58,7 @@ export function LiveTile({ id, selfId, variant = 'stage', fit = 'cover', action,
   const p = useParticipantView(id)
   const network = useNetworkQuality(id)
   const stream = useTrack(id, 'cam')
+  const { facing } = useLocalDevices()
   const ref = useRef<HTMLVideoElement>(null)
   const self = id === selfId
   const pip = variant === 'pip'
@@ -88,7 +89,8 @@ export function LiveTile({ id, selfId, variant = 'stage', fit = 'cover', action,
         /* Always muted. This element carries video only; audio is one
            <audio> per remote participant in the seam. An unmuted video
            element here would reintroduce the feedback howl. Self view is
-           mirrored, the way every camera preview is.
+           mirrored, the way every camera preview is - but only the front
+           camera: a back camera mirrored writes a label backwards.
 
            rounded-[inherit] on the video itself, not only overflow-hidden on
            the tile: the mirror transform gives the video its own compositing
@@ -102,7 +104,7 @@ export function LiveTile({ id, selfId, variant = 'stage', fit = 'cover', action,
           className={cn(
             'h-full w-full rounded-[inherit]',
             fit === 'contain' ? 'object-contain' : 'object-cover',
-            self && 'scale-x-[-1]',
+            self && facing === 'user' && 'scale-x-[-1]',
           )}
         />
       ) : (

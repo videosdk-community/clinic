@@ -11,7 +11,10 @@ import { cn } from '../design/ui'
    conferencing app shares, so "am I muted" is answerable at a glance rather
    than by hunting for a diagonal line through a glyph. A tint, not a fill:
    solid red is kept for the two things that are actually serious, ending the
-   visit and a running recording (`danger`). */
+   visit and a running recording (`danger`).
+
+   `split` squares the right edge so a DeviceMenu chevron can sit flush
+   against it, as one control with two halves. */
 
 export interface CtrlBtnProps {
   children: ReactNode
@@ -21,6 +24,7 @@ export interface CtrlBtnProps {
   active?: boolean
   off?: boolean
   disabled?: boolean
+  split?: boolean
   onClick?: () => void
 }
 
@@ -32,6 +36,7 @@ export function CtrlBtn({
   active,
   off,
   disabled,
+  split,
   onClick,
 }: CtrlBtnProps) {
   /* bg-inset, not bg-raised: in light, raised is the same white as the bar
@@ -54,6 +59,7 @@ export function CtrlBtn({
       aria-pressed={off !== undefined ? off : active}
       className={cn(
         'flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border-0',
+        split && 'rounded-r-none',
         'transition-colors duration-[120ms] ease-standard',
         text ? 'px-3' : 'w-10',
         tone,

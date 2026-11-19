@@ -1,13 +1,27 @@
 import { CtrlBtn } from './CtrlBtn'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { DeviceMenu } from './DeviceMenu'
+import { DevicesSheet } from './DevicesSheet'
 import { RoomIcon, type IconName } from './icons'
-import { BottomSheet, cn } from '../design/ui'
+import { BottomSheet, cn, useToast } from '../design/ui'
 import { useDeviceClass } from '../lib/useDeviceClass'
+import { useLocalDevices, useRoomActions } from '../sdk'
 
 /* The control bar: mic, camera, screen share, chat, leave. The doctor also
-   gets Record, and their exit says "End visit" because it closes the room for
-   both people. While a recording runs, the patient gets Stop too: either side
-   can stop it. Phone gets its own bar, below, with the same props. */
+   gets Show me and Record, and their exit says "End visit" because it closes
+   the room for both people. While a recording runs, the patient gets Stop
+   too: either side can stop it. Mic and camera are split buttons whose
+   chevron opens a device menu. Phone gets its own bar, below, with the same
+   props. */
+
+/** The doctor's Show me control: idle, asking the patient, or a close look on. */
+export interface ShowMeControl {
+  state: 'idle' | 'pending' | 'active'
+  /** Nobody to ask until the patient is in. */
+  disabled: boolean
+  /** Asks when idle, ends the close look when active. */
+  onClick: () => void
+}
 
 export interface ControlBarProps {
   /** Who the visit is with, shown at the left edge on tablet and desktop. */
@@ -36,7 +50,13 @@ export interface ControlBarProps {
   onToggleRecording: () => void
 
   chatOpen: boolean
-  onToggleChat: () => void
+  /** Absent where chat is always on screen: the doctor's docked rail. */
+  onToggleChat?: () => void
+
+  /** Doctor only. */
+  showMe?: ShowMeControl
+  /** Phone doctor: opens the patient's details in a sheet. */
+  onShowPatient?: () => void
 
   onLeave: () => void
 }
@@ -45,6 +65,12 @@ function recordLabel({ isRecording, recordingPending }: Pick<ControlBarProps, 'i
   if (isRecording) return 'Stop recording'
   if (recordingPending) return 'Waiting for consent'
   return 'Start recording'
+}
+
+function showMeLabel(state: ShowMeControl['state']) {
+  if (state === 'active') return 'End the close look'
+  if (state === 'pending') return 'Waiting for them to show you'
+  return 'Show me'
 }
 
 function shareLabel({
@@ -81,6 +107,7 @@ function DesktopControlBar(props: ControlBarProps) {
     onToggleRecording,
     chatOpen,
     onToggleChat,
+    showMe,
     onLeave,
   } = props
 
@@ -93,12 +120,18 @@ function DesktopControlBar(props: ControlBarProps) {
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <CtrlBtn label={micOn ? 'Mute yourself' : 'Unmute yourself'} off={!micOn} onClick={onToggleMic}>
-          <RoomIcon name={micOn ? 'mic' : 'micOff'} size={18} />
-        </CtrlBtn>
-        <CtrlBtn label={camOn ? 'Turn camera off' : 'Turn camera on'} off={!camOn} onClick={onToggleCam}>
-          <RoomIcon name={camOn ? 'cam' : 'camOff'} size={18} />
-        </CtrlBtn>
+        <div className="flex">
+          <CtrlBtn split label={micOn ? 'Mute yourself' : 'Unmute yourself'} off={!micOn} onClick={onToggleMic}>
+            <RoomIcon name={micOn ? 'mic' : 'micOff'} size={18} />
+          </CtrlBtn>
+          <DeviceMenu kind="mic" />
+        </div>
+        <div className="flex">
+          <CtrlBtn split label={camOn ? 'Turn camera off' : 'Turn camera on'} off={!camOn} onClick={onToggleCam}>
+            <RoomIcon name={camOn ? 'cam' : 'camOff'} size={18} />
+          </CtrlBtn>
+          <DeviceMenu kind="cam" />
+        </div>
         <CtrlBtn
           label={shareLabel(props)}
           text="Share"
@@ -108,6 +141,20 @@ function DesktopControlBar(props: ControlBarProps) {
         >
           <RoomIcon name="share" size={18} />
         </CtrlBtn>
+        {/* Off while the patient is being asked, like Record; Cancel is on the
+            stage pill. Pressed while the close look is on, and a second click
+            ends it. */}
+        {showMe && (
+          <CtrlBtn
+            label={showMeLabel(showMe.state)}
+            text={showMe.state === 'active' ? 'Showing' : showMe.state === 'pending' ? 'Asking...' : 'Show me'}
+            active={showMe.state === 'active'}
+            disabled={showMe.disabled || showMe.state === 'pending'}
+            onClick={showMe.onClick}
+          >
+            <RoomIcon name="scan" size={18} />
+          </CtrlBtn>
+        )}
         {/* Red while recording, matching the pill both sides see. The state
             comes from the SDK's own recording event, so the control is already
             lit during RECORDING_STARTING and cannot be double-fired. Off while
@@ -123,9 +170,11 @@ function DesktopControlBar(props: ControlBarProps) {
             <RoomIcon name="record" size={18} />
           </CtrlBtn>
         )}
-        <CtrlBtn label="Chat" active={chatOpen} onClick={onToggleChat}>
-          <RoomIcon name="chat" size={18} />
-        </CtrlBtn>
+        {onToggleChat && (
+          <CtrlBtn label="Chat" active={chatOpen} onClick={onToggleChat}>
+            <RoomIcon name="chat" size={18} />
+          </CtrlBtn>
+        )}
 
         <div className="mx-2 h-6 w-px bg-line" />
 
@@ -155,9 +204,9 @@ function DesktopControlBar(props: ControlBarProps) {
 /* The phone control bar: Mic, Camera, Chat, More, Leave or End.
 
    A different button set from desktop's, not a CSS-hidden subset of it.
-   Screen share and Record flatten into one BottomSheet - share is usually
-   unavailable on a phone browser anyway, and the five buttons that stay are
-   the ones a patient reaches for. */
+   Screen share, Record, Show me and the device controls flatten into one
+   BottomSheet - share is usually unavailable on a phone browser anyway, and
+   the five buttons that stay are the ones a patient reaches for. */
 
 function SheetRow({
   icon,
@@ -204,9 +253,43 @@ function PhoneControlBar(props: ControlBarProps) {
     onToggleRecording,
     chatOpen,
     onToggleChat,
+    showMe,
+    onShowPatient,
     onLeave,
   } = props
+  const actions = useRoomActions()
+  const toast = useToast()
+  const { facing } = useLocalDevices()
   const [moreOpen, setMoreOpen] = useState(false)
+  const [devicesOpen, setDevicesOpen] = useState(false)
+  const [cameraCount, setCameraCount] = useState(0)
+
+  /* Read on open, so "Switch camera" only appears with a camera to switch to. */
+  useEffect(() => {
+    if (!moreOpen) return
+    let live = true
+    actions
+      .listDevices()
+      .then((l) => live && setCameraCount(l.cameras.length))
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [moreOpen, actions])
+
+  /* The other facing first. Where nothing reports a facing (Chromium's fake
+     camera, many Android builds), the next camera in the list instead. */
+  const switchCamera = async () => {
+    try {
+      const flipped = await actions.switchCamera({ facing: facing === 'environment' ? 'user' : 'environment' })
+      if (flipped === 'switched') return
+      const l = await actions.listDevices()
+      const next = l.cameras[(l.cameras.findIndex((c) => c.id === l.cameraId) + 1) % l.cameras.length]
+      if (next && next.id !== l.cameraId) await actions.switchCamera({ deviceId: next.id })
+    } catch {
+      toast('Could not switch cameras.', 'danger')
+    }
+  }
 
   /* Each sheet action closes the sheet first, so the result is visible. */
   const run = (fn: () => void) => () => {
@@ -222,9 +305,11 @@ function PhoneControlBar(props: ControlBarProps) {
       <CtrlBtn label={camOn ? 'Turn camera off' : 'Turn camera on'} off={!camOn} onClick={onToggleCam}>
         <RoomIcon name={camOn ? 'cam' : 'camOff'} size={18} />
       </CtrlBtn>
-      <CtrlBtn label="Chat" active={chatOpen} onClick={onToggleChat}>
-        <RoomIcon name="chat" size={18} />
-      </CtrlBtn>
+      {onToggleChat && (
+        <CtrlBtn label="Chat" active={chatOpen} onClick={onToggleChat}>
+          <RoomIcon name="chat" size={18} />
+        </CtrlBtn>
+      )}
       <CtrlBtn label="More controls" active={moreOpen} onClick={() => setMoreOpen(!moreOpen)}>
         <RoomIcon name="more" size={18} />
       </CtrlBtn>
@@ -249,7 +334,21 @@ function PhoneControlBar(props: ControlBarProps) {
             onClick={run(onToggleRecording)}
           />
         )}
+        {showMe && (
+          <SheetRow
+            icon="scan"
+            label={showMeLabel(showMe.state)}
+            active={showMe.state === 'active'}
+            disabled={showMe.disabled || showMe.state === 'pending'}
+            onClick={run(showMe.onClick)}
+          />
+        )}
+        {cameraCount > 1 && <SheetRow icon="flip" label="Switch camera" onClick={run(() => void switchCamera())} />}
+        <SheetRow icon="cam" label="Camera and microphone" onClick={run(() => setDevicesOpen(true))} />
+        {onShowPatient && <SheetRow icon="clipboard" label="Patient details" onClick={run(onShowPatient)} />}
       </BottomSheet>
+
+      <DevicesSheet open={devicesOpen} onClose={() => setDevicesOpen(false)} />
     </div>
   )
 }

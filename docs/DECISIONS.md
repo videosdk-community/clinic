@@ -150,6 +150,49 @@ Measured 2026-11-19 on Chromium with two fake cameras and microphones: the docto
 and mic mid-call, the patient kept receiving video, and the menu showed the new devices. Flipping to
 a real back camera on iOS and Android has **not** been driven yet.
 
+## Show me: the doctor asks for a closer look
+
+Telehealth's most common physical-exam moment is "can you show me that?". The doctor clicks Show me,
+and the patient can switch to their back camera with one tap. It reuses the consent pattern exactly:
+an unpersisted `SHOWME` topic, the message kind as the text, a request id, sender checks.
+
+1. The doctor publishes `request { id, to }`. The stage shows "Waiting for {patient} to show you"
+   with Cancel (`cancel { id }`).
+2. The patient sees "Dr. X wants a closer look". With a back camera the button is "Switch to back
+   camera"; without one (desktops, Chromium's fake camera) it is "Show it on my camera" and nothing
+   switches. Not now publishes `decline { id }` and the doctor gets "{patient} did not switch
+   cameras". The prompt waits behind the recording consent prompt, so only one shows at a time.
+3. Accept runs `switchCamera({ facing: 'environment' })` first, then publishes
+   `accept { id, back }`. The back camera opens with `optimizationMode: 'detail'`, which favours
+   sharpness over frame rate.
+4. The doctor's stage goes into close look: the patient's video uncropped (`contain`), a "Close look
+   · {name}'s back camera" pill with Done, and the Show me button pressed as "Showing". Done
+   publishes `end { id }`, and the patient switches back to the front camera only if it had switched.
+   A cancel after accept, or the doctor leaving, also switches the patient back.
+
+Measured 2026-11-19 with `scripts/drive.mjs` on Chromium fake devices: decline reaches the doctor,
+accept puts the doctor in close look, Done restores the stage. The back-camera path itself needs a
+real phone and has **not** been driven yet.
+
+Known gap: if only the doctor drops and reconnects during a close look, the patient switches back
+while the doctor's client still shows close look until Done.
+
+## The doctor's room has a Patient panel
+
+On desktop the doctor's room is the video stage plus an always-open 360px panel with two tabs:
+
+- **Patient:** name, "Name matched" when the admitted patient's typed name matches the booking, the
+  intake, and "This visit" (recording state, their connection level, which camera they are on).
+- **Chat:** the same chat panel as before, with an unread count on the tab while Patient is open.
+
+Telehealth doctors work from the patient's context, and a call screen with only video and buttons
+reads as a generic meeting app. On a tablet the panel is an overlay toggled from the control bar; on
+a phone chat stays a sheet and patient details open from More. The patient's own room is unchanged:
+stage, self view and the old chat panel.
+
+While nobody is in, the stage shows who is expected or knocking, the scheduled time and Copy visit
+link, instead of grey text.
+
 ## Recording needs the patient's consent at the moment it starts
 
 1. The doctor clicks Record. Clinic publishes `request` on the unpersisted `CONSENT` topic, with
