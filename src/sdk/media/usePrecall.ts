@@ -45,11 +45,20 @@ export function usePrecall() {
      stream changes. Held in the ref alone it never reached the meter, and the
      bar sat at zero however loud you spoke. */
   const [micPreview, setMicPreview] = useState<MediaStream | undefined>()
+  /* Whether the last attempt to open each device failed. The pre-call check
+     waits for each device to either open or fail, and without this a camera
+     that never opens leaves it waiting forever. */
+  const [cameraFailed, setCameraFailed] = useState(false)
+  const [micFailed, setMicFailed] = useState(false)
 
   const refreshDevices = useCallback(async () => {
     const [cams, mics] = await Promise.all([devices.cameras(), devices.microphones()])
     setCameras(cams)
     setMicrophones(mics)
+    /* Nothing attached counts as a failed open, so the pre-call check does
+       not wait on a device that will never appear. */
+    if (!cams.length) setCameraFailed(true)
+    if (!mics.length) setMicFailed(true)
     setCameraId((id) => id ?? cams[0]?.id)
     setMicrophoneId((id) => id ?? mics[0]?.id)
   }, [devices])
@@ -112,6 +121,7 @@ export function usePrecall() {
            devices hang rather than flicker. */
         stopStream(tracks.current.camera)
         tracks.current.camera = undefined
+        setCameraFailed(false)
 
         const next = await createPreviewCamera(cameraId)
         if (cancelled) { stopStream(next); return }
@@ -122,7 +132,7 @@ export function usePrecall() {
            just silently never appears, which looks like a camera that is off
            rather than one that failed. */
         warn('could not open the camera for preview', err)
-        if (!cancelled) setPreview(undefined)
+        if (!cancelled) { setPreview(undefined); setCameraFailed(true) }
       }
     })()
     return () => { cancelled = true }
@@ -140,6 +150,7 @@ export function usePrecall() {
       try {
         stopStream(tracks.current.microphone)
         tracks.current.microphone = undefined
+        setMicFailed(false)
 
         const next = await createPreviewMicrophone(microphoneId)
         if (cancelled) { stopStream(next); return }
@@ -147,7 +158,7 @@ export function usePrecall() {
         setMicPreview(next)
       } catch (err) {
         warn('could not open the microphone', err)
-        if (!cancelled) setMicPreview(undefined)
+        if (!cancelled) { setMicPreview(undefined); setMicFailed(true) }
       }
     })()
     return () => { cancelled = true }
@@ -177,6 +188,8 @@ export function usePrecall() {
     micOn,
     preview,
     micPreview,
+    cameraFailed,
+    micFailed,
     setCameraId,
     setMicrophoneId,
     setCamOn,

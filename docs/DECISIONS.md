@@ -182,6 +182,32 @@ uplink. Their uplink loss is mostly repaired by retransmission before it reaches
 DevTools network throttling does not touch WebRTC media; a libwebrtc fake-network field trial
 (500ms delay, 15% loss) moved real tiles to fair and poor.
 
+## The pre-call check
+
+Precall runs `runPreCallTest` behind `usePrecallTest` in `src/sdk/media/`, with the visit's session
+token, so the patient's `ask_join` token is enough and nothing is joined or knocked. It starts on
+its own once each device has either opened or failed, and runs again when the tracks change (a
+camera switch, a mute) or when "Run again" is pressed.
+
+- **Thresholds.** The network row grades the lower of the uplink and downlink scores (1 to 5):
+  4-5 good, 3 fair, 1-2 poor. Poor adds one plain-language hint. The worst rtt and loss across both
+  directions sit in a small secondary line.
+- **It never blocks joining.** Ask to join stays live while the test runs, after a poor score and
+  after a failure. A failure lands on its row (camera, microphone, or network) with "You can still
+  join". Joining mid-test stops the test on unmount through the original promise's `.stop()`.
+- **The test reuses the preview tracks.** They are passed as `videoTrack` / `audioTrack`, and the
+  SDK never stops a track it was handed, so the same live streams still go to MeetingProvider.
+  Measured with a `getUserMedia` counter: one camera open across precall and a full test, one live
+  camera track after it, and the handed-off track still live after a knock made mid-test.
+  `videoConfig.cameraId` would have opened a second camera on the same device, the overlap
+  `usePrecall` already documents as a hang. A device that failed to open in precall is passed by id
+  instead, so the SDK's own error fills that row, and any track the SDK opened that way is stopped
+  here: on success, and on an abort during the network phase, it comes back in the result live.
+- **A muted mic is never opened for the test.** A silent `AudioContext` track stands in, and the
+  microphone row reads "Off". A camera switched off runs the test `audioOnly`.
+- **Timing.** At the 10000ms sampling floor a run took 10.8-11.4s. Progress is timed from the first
+  `onStatsChange`, because the media check before sampling does not report.
+
 ## What the SDK measured before the features were built
 
 Probed 2026-11-19 on react-sdk 1.3.0, Chrome with fake devices, local `vercel dev`. These are facts

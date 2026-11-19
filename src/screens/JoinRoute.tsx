@@ -216,6 +216,7 @@ function PrecallThenRoom({
             : `Hi ${session.patientName}, your visit with Dr. ${session.doctorName} at ${when}`
         }
         name={name}
+        token={session.token}
         joinLabel={isDoctor || session.admitted ? 'Join the visit' : 'Ask to join'}
         busy={joining}
         notice={attempt > 0 ? 'You can join again when you are ready.' : undefined}

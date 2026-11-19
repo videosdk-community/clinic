@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
+import { ConnectionCheck } from '../components/ConnectionCheck'
 import { MicMeter } from '../components/MicMeter'
 import { PermissionHelp } from '../components/PermissionHelp'
 import { RoomIcon } from '../components/icons'
 import { Button, Select, Spinner } from '../design/ui'
-import { usePrecall, type PrecallTracks } from '../sdk'
+import { usePrecall, usePrecallTest, type PrecallTracks } from '../sdk'
 
 /* Precall: check the devices before the other side sees you.
 
@@ -33,10 +34,16 @@ export interface PrecallProps {
       returned to a device picker reads as the app losing its place. */
   notice?: string
   busy?: boolean
+  /** The visit's session token. runPreCallTest needs one, and the patient's
+      ask_join token works without joining or knocking. */
+  token: string
 }
 
-export function Precall({ onJoin, greeting, name, joinLabel, notice, busy = false }: PrecallProps) {
+export function Precall({ onJoin, greeting, name, joinLabel, notice, busy = false, token }: PrecallProps) {
   const p = usePrecall()
+  /* Declared after usePrecall on purpose: its effects must run after
+     usePrecall's, which stop a track being switched away from. */
+  const check = usePrecallTest(token, p)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
@@ -82,8 +89,8 @@ export function Precall({ onJoin, greeting, name, joinLabel, notice, busy = fals
   }
 
   return (
-    <div className="flex h-full items-center justify-center bg-canvas p-6">
-      <div className="flex w-full max-w-[880px] flex-col items-center gap-6">
+    <div className="flex h-full overflow-y-auto bg-canvas p-4 md:p-6">
+      <div className="m-auto flex w-full max-w-[880px] flex-col items-center gap-6">
         <div className="flex flex-col items-center gap-1">
           <h1 className="text-2xl font-semibold text-ink">Ready to join?</h1>
           <span className="text-center text-base text-ink-secondary">{greeting}</span>
@@ -193,6 +200,8 @@ export function Precall({ onJoin, greeting, name, joinLabel, notice, busy = fals
                 />
                 <MicMeter stream={p.micOn ? p.micPreview : undefined} />
               </label>
+
+              <ConnectionCheck state={check.state} camOn={p.camOn} micOn={p.micOn} onRunAgain={check.run} />
 
               <Button size="lg" onClick={join} disabled={!canJoin}>
                 {busy ? 'Joining' : joinLabel}

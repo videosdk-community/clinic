@@ -38,3 +38,5 @@ export type { EntryRequest, MediaRequest, NetworkQuality } from './types'
 
 export { usePrecall } from './media/usePrecall'
 export type { PrecallTracks } from './media/usePrecall'
+export { usePrecallTest } from './media/usePrecallTest'
+export type { PrecallTestState, PrecallTestResult, PrecallTestPart, DeviceCheck } from './media/usePrecallTest'
