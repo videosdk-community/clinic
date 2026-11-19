@@ -100,6 +100,26 @@ export interface RoomMessage {
   receivedAt: number
 }
 
+/* Front or back. The web has no wider vocabulary than getUserMedia's. */
+export type CameraFacing = 'user' | 'environment'
+
+/* One camera or microphone in a device menu. `facing` is null when the
+   browser cannot tell, which is every desktop camera and Chromium's fake
+   one. Always null for microphones. */
+export interface DeviceOption {
+  id: string
+  label: string
+  facing: CameraFacing | null
+}
+
+export interface DeviceList {
+  cameras: DeviceOption[]
+  mics: DeviceOption[]
+  /** The devices this app chose, not a guess from the list order. */
+  cameraId: string | null
+  micId: string | null
+}
+
 export interface RoomSnapshot {
   status: RoomStatus
   meetingId: string | null
@@ -124,4 +144,10 @@ export interface RoomSnapshot {
   leaveReason: LeaveReason | null
   topics: Readonly<Record<string, readonly RoomMessage[]>>
   lastError: { code: number; message: string } | null
+  /* The local camera and mic this app chose. Seeded from the precall tracks,
+     updated on every switch, and read back when a device is turned on again,
+     so a choice made while the device was off is the one that opens. */
+  localFacing: CameraFacing
+  localCameraId: string | null
+  localMicId: string | null
 }

@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { useMeeting } from '@videosdk.live/react-sdk'
 import { warn } from '../log'
+import { cameraFacings, streamDevice, toOption } from '../media/devices'
+import { createPreviewCamera, createPreviewMicrophone } from '../media/tracks'
 import { normaliseEntryResponded } from '../normalise'
 import type { RoomStore } from '../store'
-import type { RoomStatus } from '../types'
+import type { CameraFacing, DeviceList, RoomStatus } from '../types'
 
 /* useMeeting, subscribed exactly once.
 
@@ -37,6 +39,46 @@ const RECORDING_CONFIG = {
   quality: 'high',
   orientation: 'landscape',
 } as const
+
+/* A back camera is pointed at a rash or a label, so it keeps resolution when
+   bandwidth drops; a face keeps frame rate. */
+const openCamera = (id: string, facing: CameraFacing) =>
+  createPreviewCamera(id, { optimizationMode: facing === 'environment' ? 'detail' : 'motion' })
+
+/* One device operation at a time, per kind. Two overlapping getUserMedia
+   calls on the same hardware can hang instead of failing (see usePrecall),
+   and a phone cannot open its back camera while the front one is live. */
+function serial() {
+  let tail: Promise<unknown> = Promise.resolve()
+  return <T,>(fn: () => Promise<T>): Promise<T> => {
+    const run = tail.then(fn)
+    tail = run.catch(() => {})
+    return run
+  }
+}
+
+/* Old device off BEFORE the new one opens, for the same two reasons.
+   disableWebcam/muteMic close the producer, and mediasoup's default
+   stopTracks releases the device once the server confirms; if that fails it
+   rejects and nothing new is opened. changeWebcam/changeMic stop a stream
+   they could not publish. A device that will not open leaves the previous
+   one reopened rather than the visit dark or silent. */
+async function swap(
+  off: () => Promise<void>,
+  open: () => Promise<MediaStream>,
+  on: (stream: MediaStream) => Promise<void>,
+  restore: (() => Promise<MediaStream>) | null,
+) {
+  await off()
+  try {
+    const stream = await open()
+    await on(stream)
+    return stream
+  } catch (err) {
+    if (restore) await restore().then(on).catch((e) => warn('could not reopen the previous device', e))
+    throw err
+  }
+}
 
 export function MeetingBridge({ store }: { store: RoomStore }) {
   const meeting = useMeeting({
@@ -124,12 +166,98 @@ export function MeetingBridge({ store }: { store: RoomStore }) {
   })
 
   useEffect(() => {
+    const camQueue = serial()
+    const micQueue = serial()
+
+    /* The SDK's own facingMode is not used - see cameraFacings. */
+    const listDevices = async (): Promise<DeviceList> => {
+      const [cams, mics, facings] = await Promise.all([
+        ref.current.getWebcams(),
+        ref.current.getMics(),
+        cameraFacings(),
+      ])
+      const { localCameraId, localMicId } = store.getSnapshot()
+      return {
+        cameras: cams.map((d, i) => ({ ...toOption(d, i, 'Camera'), facing: facings.get(d.deviceId) ?? null })),
+        mics: mics.map((d, i) => ({ ...toOption(d, i, 'Microphone'), facing: null })),
+        cameraId: localCameraId,
+        micId: localMicId,
+      }
+    }
+
     store.setActions({
       join: () => ref.current.join(),
       leave: () => ref.current.leave(),
       end: () => ref.current.end(),
-      toggleMic: () => ref.current.toggleMic(),
-      toggleWebcam: () => ref.current.toggleWebcam(),
+      /* Turning a device on opens the CHOSEN one with a fresh track. The SDK
+         would reopen the last stream it was handed, which misses a choice
+         made while the device was off - that one is only recorded, because
+         changeWebcam/changeMic with nothing live turn the device ON. Explicit
+         enable/disable rather than toggle: if our view of on/off is a render
+         stale, the SDK rejects the enable and stops the stream we opened. */
+      toggleMic: () => {
+        void micQueue(async () => {
+          const m = ref.current
+          if (m.localMicOn) return m.muteMic()
+          const id = store.getSnapshot().localMicId
+          await m.unmuteMic(id ? await createPreviewMicrophone(id) : undefined)
+        }).catch((err) => warn('mic toggle failed', err))
+      },
+      toggleWebcam: () => {
+        void camQueue(async () => {
+          const m = ref.current
+          if (m.localWebcamOn) return m.disableWebcam()
+          const { localCameraId, localFacing } = store.getSnapshot()
+          await m.enableWebcam(localCameraId ? await openCamera(localCameraId, localFacing) : undefined)
+        }).catch((err) => warn('camera toggle failed', err))
+      },
+      listDevices,
+      switchCamera: (target) =>
+        camQueue(async () => {
+          const { cameras } = await listDevices()
+          const pick =
+            'deviceId' in target
+              ? cameras.find((c) => c.id === target.deviceId)
+              : cameras.find((c) => c.facing === target.facing)
+          if (!pick) return 'unavailable'
+
+          const m = ref.current
+          const prev = store.getSnapshot()
+          const prevId = prev.localCameraId
+          let facing = pick.facing ?? 'user'
+          let id = pick.id
+          if (m.localWebcamOn && id !== prevId) {
+            const stream = await swap(
+              () => m.disableWebcam(),
+              () => openCamera(id, facing),
+              (s) => m.changeWebcam(s),
+              prevId ? () => openCamera(prevId, prev.localFacing) : null,
+            )
+            /* The track is the truth: an unknown id opens the default
+               camera, and a phone reports its facing here. */
+            const live = streamDevice(stream)
+            id = live.id ?? id
+            facing = live.facing ?? facing
+          }
+          store.setLocalDevices({ localCameraId: id, localFacing: facing })
+          return 'switched'
+        }),
+      switchMic: (deviceId) =>
+        micQueue(async () => {
+          const m = ref.current
+          const prev = store.getSnapshot().localMicId
+          let id = deviceId
+          if (m.localMicOn && id !== prev) {
+            const stream = await swap(
+              () => m.muteMic(),
+              () => createPreviewMicrophone(id),
+              (s) => m.changeMic(s),
+              prev ? () => createPreviewMicrophone(prev) : null,
+            )
+            id = streamDevice(stream).id ?? id
+          }
+          store.setLocalDevices({ localMicId: id })
+        }),
       /* getDisplayMedia sits inside this, so a dismissed picker rejects with
          NotAllowedError. That is someone changing their mind, not a fault, so
          it is swallowed here. Nothing is written on success either: presence

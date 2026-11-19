@@ -9,7 +9,7 @@
    arrows that silently read stale values. */
 
 export { RoomProvider } from './RoomProvider'
-export { CHAT_TOPIC, CONSENT_TOPIC } from './topics'
+export { CHAT_TOPIC, CONSENT_TOPIC, SHOWME_TOPIC } from './topics'
 
 export {
   useRoomStatus,
@@ -24,6 +24,7 @@ export {
   useEntryDecision,
   useMediaRequest,
   useLeaveReason,
+  useLocalDevices,
   useRoomError,
   useTopic,
   useRoomActions,
@@ -34,7 +35,7 @@ export {
    than against bare numbers, so the meaning of 1011 lives in one place. */
 export { LEAVE_ROOM_CLOSE, LEAVE_MEETING_END_API, LEAVE_DUPLICATE_PARTICIPANT } from './types'
 
-export type { EntryRequest, MediaRequest, NetworkQuality } from './types'
+export type { CameraFacing, DeviceOption, EntryRequest, MediaRequest, NetworkQuality } from './types'
 
 export { usePrecall } from './media/usePrecall'
 export type { PrecallTracks } from './media/usePrecall'

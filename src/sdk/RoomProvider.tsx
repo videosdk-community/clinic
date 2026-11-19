@@ -6,8 +6,9 @@ import { PubSubBridge } from './bridges/PubSubBridge'
 import { NetworkReporter } from './bridges/NetworkReporter'
 import { RemoteAudio } from './RemoteAudio'
 import { RoomStoreContext } from './hooks'
+import { streamDevice } from './media/devices'
 import { createRoomStore } from './store'
-import { CHAT_TOPIC, CONSENT_TOPIC, NETWORK_TOPIC } from './topics'
+import { CHAT_TOPIC, CONSENT_TOPIC, NETWORK_TOPIC, SHOWME_TOPIC } from './topics'
 
 /* The single mount point. MeetingProvider plus every bridge, all of which
    render nothing.
@@ -51,8 +52,17 @@ export function RoomProvider({
 }: RoomProviderProps) {
   /* One store per provider instance. doctorId is fixed for the life of a
      visit; a store rebuilt mid-meeting would drop every participant row, so
-     nothing else may join this dependency list. */
-  const store = useMemo(() => createRoomStore(doctorId), [doctorId])
+     nothing else may join this dependency list. The precall tracks are read
+     but not listed: MeetingProvider ignores them after mount too. */
+  const store = useMemo(() => {
+    const cam = streamDevice(customCameraVideoTrack)
+    return createRoomStore(doctorId, {
+      localCameraId: cam.id,
+      localFacing: cam.facing ?? 'user',
+      localMicId: streamDevice(customMicrophoneAudioTrack).id,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doctorId])
 
   return (
     <MeetingProvider
@@ -76,6 +86,7 @@ export function RoomProvider({
         <ParticipantBridges store={store} />
         <PubSubBridge topic={CHAT_TOPIC} store={store} persist={false} />
         <PubSubBridge topic={CONSENT_TOPIC} store={store} persist={false} />
+        <PubSubBridge topic={SHOWME_TOPIC} store={store} persist={false} />
         <PubSubBridge topic={NETWORK_TOPIC} store={store} persist={false} />
         <NetworkReporter />
         <RemoteAudio />

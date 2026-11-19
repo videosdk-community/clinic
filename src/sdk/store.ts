@@ -1,5 +1,7 @@
 import { warn } from './log'
 import type {
+  CameraFacing,
+  DeviceList,
   EntryDecision,
   EntryRequest,
   LeaveReason,
@@ -38,7 +40,12 @@ const INITIAL: RoomSnapshot = {
   leaveReason: null,
   topics: {},
   lastError: null,
+  localFacing: 'user',
+  localCameraId: null,
+  localMicId: null,
 }
+
+export type LocalDevices = Pick<RoomSnapshot, 'localFacing' | 'localCameraId' | 'localMicId'>
 
 function shallowEqual<T extends object>(a: T, b: T) {
   const ak = Object.keys(a) as Array<keyof T>
@@ -72,6 +79,17 @@ export interface RoomActions {
   startRecording: () => void
   stopRecording: () => void
   respondEntry: (id: string, allow: boolean) => Promise<void>
+  /** For a device menu, read when it opens. */
+  listDevices: () => Promise<DeviceList>
+  /* Never opens a camera while yours is off: the choice is recorded and is
+     what opens when you turn it back on. 'unavailable' means no camera faces
+     that way here - every desktop - and nothing was changed. Rejects if the
+     new camera would not open, after reopening the previous one. */
+  switchCamera: (
+    target: { deviceId: string } | { facing: CameraFacing },
+  ) => Promise<'switched' | 'unavailable'>
+  /** Same rules as switchCamera: a muted mic stays muted. */
+  switchMic: (deviceId: string) => Promise<void>
 }
 
 /* One topic's publisher, registered by the PubSubBridge that owns the topic.
@@ -93,8 +111,8 @@ export interface RoomFacade extends RoomActions {
    Passed in at construction rather than set later: the store is created in the
    same memo as the provider that mounts the meeting, so it is known before any
    participant row can exist. */
-export function createRoomStore(doctorId: string | null = null) {
-  let snapshot: RoomSnapshot = { ...INITIAL, doctorId }
+export function createRoomStore(doctorId: string | null = null, devices?: Partial<LocalDevices>) {
+  let snapshot: RoomSnapshot = { ...INITIAL, doctorId, ...devices }
   let version = 0
   const listeners = new Set<() => void>()
 
@@ -160,6 +178,20 @@ export function createRoomStore(doctorId: string | null = null) {
       if (actions) await actions.respondEntry(id, allow)
       else notReady('respondEntry')()
     },
+    listDevices: async () => {
+      if (actions) return actions.listDevices()
+      notReady('listDevices')()
+      return { cameras: [], mics: [], cameraId: null, micId: null }
+    },
+    switchCamera: async (target) => {
+      if (actions) return actions.switchCamera(target)
+      notReady('switchCamera')()
+      return 'unavailable'
+    },
+    switchMic: async (id) => {
+      if (actions) await actions.switchMic(id)
+      else notReady('switchMic')()
+    },
     publish: async (topic, text, payload) => {
       const publisher = publishers.get(topic)
       if (!publisher) {
@@ -208,6 +240,7 @@ export function createRoomStore(doctorId: string | null = null) {
     setRecording: (isRecording: boolean) => commit({ isRecording }),
     setError: (lastError: { code: number; message: string } | null) => commit({ lastError }),
     setLeaveReason: (leaveReason: LeaveReason | null) => commit({ leaveReason }),
+    setLocalDevices: (patch: Partial<LocalDevices>) => commit(patch),
 
     /* Structural sharing. If nothing about this participant changed, the
        existing object is kept, so `participants` holds reference identity for
@@ -320,7 +353,7 @@ export function createRoomStore(doctorId: string | null = null) {
     getActionFacade: () => facade,
 
     reset() {
-      snapshot = { ...INITIAL, doctorId }
+      snapshot = { ...INITIAL, doctorId, ...devices }
       entryClosures.clear()
       mediaClosures = null
       tracks.clear()

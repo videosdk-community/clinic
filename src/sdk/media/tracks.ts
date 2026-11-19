@@ -29,9 +29,20 @@ export async function withTimeout<T>(p: Promise<T>, ms: number, what: string): P
   }
 }
 
-export function createPreviewCamera(cameraId?: string) {
+/* The SDK stamps these options onto the stream it returns and re-reads them
+   whenever it reopens the camera itself (a toggle back on, a reconnect), so
+   the device and mode chosen here persist past the call. */
+export function createPreviewCamera(
+  cameraId?: string,
+  opts: { facingMode?: 'user' | 'environment'; optimizationMode?: 'motion' | 'detail' | 'text' } = {},
+) {
   return withTimeout(
-    createCameraVideoTrack({ cameraId, optimizationMode: 'motion', multiStream: false }),
+    createCameraVideoTrack({
+      cameraId,
+      facingMode: opts.facingMode,
+      optimizationMode: opts.optimizationMode ?? 'motion',
+      multiStream: false,
+    }),
     8000,
     'the camera',
   )

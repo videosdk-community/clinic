@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useRef, useSyncExternalStore } from 'react'
 import type { RoomStore } from './store'
 import { NETWORK_TOPIC } from './topics'
-import type { NetworkQuality, ParticipantView, RoomMessage, RoomSnapshot, TrackKind } from './types'
+import type { CameraFacing, NetworkQuality, ParticipantView, RoomMessage, RoomSnapshot, TrackKind } from './types'
 
 export const RoomStoreContext = createContext<RoomStore | null>(null)
 
@@ -67,6 +67,14 @@ const selEntryDecision = (s: RoomSnapshot) => s.lastEntryDecision
 const selMediaRequest = (s: RoomSnapshot) => s.mediaRequest
 const selError = (s: RoomSnapshot) => s.lastError
 const selLeaveReason = (s: RoomSnapshot) => s.leaveReason
+const selLocalDevices = (s: RoomSnapshot) => ({
+  facing: s.localFacing,
+  cameraId: s.localCameraId,
+  micId: s.localMicId,
+})
+type LocalDevices = { facing: CameraFacing; cameraId: string | null; micId: string | null }
+const devicesEqual = (a: LocalDevices, b: LocalDevices) =>
+  a.facing === b.facing && a.cameraId === b.cameraId && a.micId === b.micId
 
 export const useRoomStatus = () => useSelector(selStatus)
 export const useLocalId = () => useSelector(selLocalId)
@@ -83,6 +91,8 @@ export const useMediaRequest = () => useSelector(selMediaRequest)
 export const useRoomError = () => useSelector(selError)
 /** Why the meeting ended. The only room-ended signal the SDK has. */
 export const useLeaveReason = () => useSelector(selLeaveReason)
+/** Your chosen camera, its facing, and your chosen mic. */
+export const useLocalDevices = () => useSelector(selLocalDevices, devicesEqual)
 
 /** One participant. The store gives these reference identity, so this is a
     plain read and needs no equality function. */

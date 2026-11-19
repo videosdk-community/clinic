@@ -123,6 +123,33 @@ admitted, the stranger's card shows "No intake sent.", and the details page show
 (video, audio, chat, recordings) stays with VideoSDK. A HIPAA-ready deployment therefore needs
 Supabase under its own BAA as well as VideoSDK's, and the blog must say so.
 
+## Camera and microphone can be switched in the call
+
+Both roles can change camera and microphone in the room: a chevron beside Mic and Cam on desktop,
+"Camera and microphone" in the More sheet on a phone, and "Switch camera" to flip between front and
+back.
+
+- **Through streams, not device ids.** `switchCamera` and `switchMic` in the SDK seam build a fresh
+  track with `createCameraVideoTrack` / `createMicrophoneAudioTrack` and hand it to `changeWebcam`
+  / `changeMic`, the same way the precall hands its tracks to the meeting.
+- **The old device is released first.** Phones cannot open the back camera while the front one is
+  live, so a switch closes the current track (`disableWebcam` / `muteMic`), then opens the new one.
+  If the new device fails, the previous one is reopened.
+- **The choice survives off and on.** `toggleWebcam()` with no stream reopens whatever the SDK last
+  saw, which misses a choice made while the camera was off. So the seam keeps the chosen ids and
+  turning the camera or mic back on opens a fresh track from them. A switch while the device is off
+  only records the choice: `changeWebcam` on an idle camera would turn it on.
+- **Facing comes from the browser, not the SDK.** In react-sdk 1.3.x, `getWebcams()` reports
+  `facingMode: "environment"` for every web camera, because it reads a field browsers do not set.
+  The seam asks the track instead (`getCapabilities().facingMode` in Chromium, else the label: front,
+  back, rear). A camera it cannot place is `null`. The self view is mirrored only for a front camera.
+- **The menu's check follows the store**, not the listing it read on open: a switch still finishing
+  when the menu is reopened lands a moment later, and the check moves with it.
+
+Measured 2026-11-19 on Chromium with two fake cameras and microphones: the doctor switched camera
+and mic mid-call, the patient kept receiving video, and the menu showed the new devices. Flipping to
+a real back camera on iOS and Android has **not** been driven yet.
+
 ## Recording needs the patient's consent at the moment it starts
 
 1. The doctor clicks Record. Clinic publishes `request` on the unpersisted `CONSENT` topic, with
