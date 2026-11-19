@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useRef, useSyncExternalStore } from 'react'
 import type { RoomStore } from './store'
+import { NETWORK_TOPIC } from './topics'
 import type { NetworkQuality, ParticipantView, RoomMessage, RoomSnapshot, TrackKind } from './types'
 
 export const RoomStoreContext = createContext<RoomStore | null>(null)
@@ -93,13 +94,38 @@ export function useParticipantView(id: string): ParticipantView | undefined {
 
 /** One participant's connection reading. Changes only when the smoothed
     level changes, never on every poll. */
+/* A tile's level. For your own tile it is your own reading. For someone
+   else's it is the WORSE of two readings: theirs, which they broadcast on
+   NETWORK_TOPIC and which describes their link to the server, and ours of
+   their stream, which describes our link. Our reading alone would show the
+   doctor's bad Wi-Fi as the patient's bars. */
 export function useNetworkQuality(id: string): NetworkQuality {
   const store = useRoomStore()
-  const get = useCallback(
-    () => store.getSnapshot().participants[id]?.network ?? 'unknown',
-    [store, id],
-  )
+  const get = useCallback(() => {
+    const snap = store.getSnapshot()
+    const ours = snap.participants[id]?.network ?? 'unknown'
+    if (id === snap.localId) return ours
+    const reports = snap.topics[NETWORK_TOPIC] ?? EMPTY
+    let theirs: NetworkQuality = 'unknown'
+    for (let i = reports.length - 1; i >= 0; i--) {
+      if (reports[i].senderId === id) {
+        theirs = asQuality(reports[i].text)
+        break
+      }
+    }
+    return worse(ours, theirs)
+  }, [store, id])
   return useSyncExternalStore(store.subscribe, get, get)
+}
+
+const RANK: Record<NetworkQuality, number> = { unknown: 0, good: 1, fair: 2, poor: 3 }
+
+function worse(a: NetworkQuality, b: NetworkQuality): NetworkQuality {
+  return RANK[a] >= RANK[b] ? a : b
+}
+
+function asQuality(text: string): NetworkQuality {
+  return text === 'good' || text === 'fair' || text === 'poor' ? text : 'unknown'
 }
 
 export function useTopic(topic: string): readonly RoomMessage[] {

@@ -177,8 +177,12 @@ tile's three bars are graded in `ParticipantBridge` from one participant's stats
 - **Smoothing.** The level changes only when two consecutive readings agree, so one spike does not
   flicker the bars. An unchanged level is a no-op write and re-renders nothing.
 
-What it measures on a remote tile is the path from the SFU to you, not the other person's own
-uplink. Their uplink loss is mostly repaired by retransmission before it reaches you. Chrome
+Your reading of someone else's stream measures the path from the SFU to you, not their own
+uplink: their loss is mostly repaired by retransmission before it reaches you, and your bad Wi-Fi
+would show as their bars. So each client also broadcasts its own tile's level on the unpersisted
+`NETWORK` topic, whenever it changes and whenever someone joins, and a remote tile shows the worse
+of their report and your reading. Driven 2026-11-19 by forcing the patient's report to poor: the
+doctor's tile for the patient read "Connection: poor" while the doctor's own read good. Chrome
 DevTools network throttling does not touch WebRTC media; a libwebrtc fake-network field trial
 (500ms delay, 15% loss) moved real tiles to fair and poor.
 

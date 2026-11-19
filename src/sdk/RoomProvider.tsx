@@ -3,10 +3,11 @@ import { MeetingProvider } from '@videosdk.live/react-sdk'
 import { MeetingBridge } from './bridges/MeetingBridge'
 import { ParticipantBridges } from './bridges/ParticipantBridges'
 import { PubSubBridge } from './bridges/PubSubBridge'
+import { NetworkReporter } from './bridges/NetworkReporter'
 import { RemoteAudio } from './RemoteAudio'
 import { RoomStoreContext } from './hooks'
 import { createRoomStore } from './store'
-import { CHAT_TOPIC, CONSENT_TOPIC } from './topics'
+import { CHAT_TOPIC, CONSENT_TOPIC, NETWORK_TOPIC } from './topics'
 
 /* The single mount point. MeetingProvider plus every bridge, all of which
    render nothing.
@@ -75,6 +76,8 @@ export function RoomProvider({
         <ParticipantBridges store={store} />
         <PubSubBridge topic={CHAT_TOPIC} store={store} persist={false} />
         <PubSubBridge topic={CONSENT_TOPIC} store={store} persist={false} />
+        <PubSubBridge topic={NETWORK_TOPIC} store={store} persist={false} />
+        <NetworkReporter />
         <RemoteAudio />
         {children}
       </RoomStoreContext.Provider>
