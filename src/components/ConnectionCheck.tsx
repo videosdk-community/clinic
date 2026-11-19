@@ -76,11 +76,11 @@ export function ConnectionCheck({
   const settled = state.status === 'done' || state.status === 'failed'
 
   return (
-    <section aria-label="Connection check" className="flex flex-col gap-3 rounded-xl border border-line bg-card p-4">
+    <section aria-label="Connection check" className="flex flex-col gap-3 rounded-xl border border-hairline bg-card p-4 shadow-sm">
       <div className="flex min-h-8 items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-ink">Check your connection</h2>
         {settled && (
-          <Button size="sm" variant="text" onClick={onRunAgain}>
+          <Button variant="text" className="-mr-2 max-sm:h-10" onClick={onRunAgain}>
             Run again
           </Button>
         )}

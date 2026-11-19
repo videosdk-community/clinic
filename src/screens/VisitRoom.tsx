@@ -6,6 +6,7 @@ import { KnockCard } from '../components/KnockCard'
 import { LeavePrompt } from '../components/LeavePrompt'
 import { LiveTile } from '../components/LiveTile'
 import { MediaRequestPrompt } from '../components/MediaRequestPrompt'
+import { RoomIcon } from '../components/icons'
 import { RecordingConsentPrompt } from '../components/RecordingConsentPrompt'
 import { ScreenStage } from '../components/ScreenStage'
 import { SidePanel } from '../components/SidePanel'
@@ -178,14 +179,18 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
   }, [isDoctor, waiting, unknownKnocks, roomId, actions])
   const knocks = waiting.filter((r) => unknownKnocks.has(r.participantId))
 
-  /* Mute is real; unmute only asks, and the patient answers on their side. */
+  /* Mute is real; unmute only asks, and the patient answers on their side.
+     It sits beside the patient's name chip in the same dark glass, so it reads
+     as "about this person". The ::after widens the hit area to 40px for a
+     finger without making the chip itself any bigger. */
   const moderate = isDoctor && main && (
     <button
       type="button"
       onClick={() => (main.micOn ? actions.muteParticipant(main.id) : actions.askToUnmute(main.id))}
-      className="h-7 cursor-pointer rounded-pill border-0 px-2.5 text-sm text-white backdrop-blur-[4px]"
-      style={{ background: 'rgba(0,0,0,.55)' }}
+      title={main.micOn ? `Mute ${main.name}` : `Ask ${main.name} to unmute`}
+      className="relative flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border-0 bg-video/60 px-2 text-sm text-on-video backdrop-blur-sm after:absolute after:-inset-1.5 after:content-[''] hover:bg-video/80"
     >
+      <RoomIcon name={main.micOn ? 'micOff' : 'mic'} size={12} />
       {main.micOn ? 'Mute' : 'Ask to unmute'}
     </button>
   )
@@ -198,14 +203,14 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
   }))
   const send = (text: string) => actions.publish(CHAT_TOPIC, text)
 
-  const pip = isPhone ? 'aspect-[3/4] w-24' : 'aspect-video w-40 lg:w-56'
+  const pip = isPhone ? 'aspect-[3/4] w-24' : 'aspect-video w-44 lg:w-56'
 
   return (
-    <div className="relative flex h-full flex-col bg-canvas">
+    <div data-room className="relative flex h-full flex-col bg-canvas">
       <div className="relative flex min-h-0 flex-1">
         <main className="flex min-w-0 flex-1 flex-col">
           <div className={isPhone ? 'min-h-0 flex-1 p-2' : 'min-h-0 flex-1 p-4'}>
-            <div className="relative h-full w-full overflow-hidden rounded-2xl bg-inset">
+            <div className="relative h-full w-full overflow-hidden rounded-2xl border border-hairline bg-subtle">
               {presenterId ? (
                 <ScreenStage
                   presenterId={presenterId}
@@ -223,13 +228,13 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
                        cropping someone's face. */
                     fit={isPhone ? 'cover' : 'contain'}
                     action={moderate}
-                    className="h-full w-full rounded-2xl"
+                    className="h-full w-full"
                   />
                 </div>
               ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-6 text-center">
+                <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 p-6 text-center">
                   <span className="text-lg font-semibold text-ink">Waiting for {otherName}</span>
-                  <span className="text-base text-ink-secondary">
+                  <span className="max-w-[360px] text-base text-ink-secondary">
                     {isDoctor
                       ? 'They will knock when they open the link. You decide who comes in.'
                       : 'They will be with you shortly.'}
@@ -246,7 +251,7 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
                   {recording && (
                     <span
                       role="status"
-                      className="pointer-events-auto flex h-8 items-center gap-2 rounded-pill bg-danger-solid pl-3 pr-1 text-sm font-semibold text-white"
+                      className="pointer-events-auto flex h-9 items-center gap-2 rounded-pill bg-danger-solid pl-3.5 pr-1 text-sm font-semibold text-white"
                       style={{ boxShadow: 'var(--elevation-popover)' }}
                     >
                       <span aria-hidden className="h-2 w-2 animate-pulse rounded-pill bg-white" />
@@ -255,7 +260,7 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
                         type="button"
                         aria-label="Stop recording"
                         onClick={actions.stopRecording}
-                        className="h-6 cursor-pointer rounded-pill border-0 bg-white/20 px-2.5 text-sm font-semibold text-white hover:bg-white/30"
+                        className="relative ml-1 h-7 cursor-pointer rounded-pill border-0 bg-white/20 px-3 text-sm font-semibold text-white after:absolute after:-inset-1.5 after:content-[''] hover:bg-white/30"
                       >
                         Stop
                       </button>
@@ -264,29 +269,33 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
                   {consent.pending && !recording && (
                     <span
                       role="status"
-                      className="pointer-events-auto flex min-h-8 max-w-full items-center gap-2 rounded-pill border border-line-strong bg-card py-1 pl-3 pr-1 text-sm text-ink-secondary"
+                      className="pointer-events-auto flex min-h-9 max-w-full items-center gap-2 rounded-pill border border-line bg-card py-1 pl-3.5 pr-1.5 text-sm text-ink-secondary"
                       style={{ boxShadow: 'var(--elevation-popover)' }}
                     >
                       <Spinner size={14} />
                       <span className="min-w-0">Waiting for {session.patientName} to allow recording</span>
-                      <Button size="sm" variant="secondary" onClick={consent.cancel}>
+                      <Button size="md" variant="secondary" onClick={consent.cancel}>
                         Cancel
                       </Button>
                     </span>
                   )}
                   {reconnecting && (
                     <span
-                      className="rounded-pill px-2.5 py-1 text-xs font-semibold"
-                      style={{ background: 'var(--warning-bg)', color: 'var(--warning-fg)' }}
+                      role="status"
+                      className="flex h-9 items-center gap-2 rounded-pill border border-warning-border bg-warning-bg px-3 text-sm font-medium text-warning-fg"
+                      style={{ boxShadow: 'var(--elevation-popover)' }}
                     >
+                      <Spinner size={14} color="currentColor" />
                       Reconnecting...
                     </span>
                   )}
                 </div>
               )}
 
+              {/* z-40: above the tablet's overlaid chat column (z-30). A knock
+                  is the one thing in the room that cannot wait behind chat. */}
               {isDoctor && (
-                <div className="absolute right-3 top-3 z-20">
+                <div className="absolute right-3 top-3 z-40">
                   <KnockCard
                     waiting={knocks}
                     expectedName={session.patientName}
@@ -295,12 +304,16 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
                 </div>
               )}
 
-              <div className="absolute bottom-3 right-3 z-10 flex flex-col items-end gap-2">
-                {presenterId && mainId && <LiveTile id={mainId} selfId={localId} className={pip} />}
+              {/* Inset by the same 12px on every side the stage's 16px corner
+                  allows, so the tiles sit inside the curve, never on it. */}
+              <div className="absolute bottom-3 right-3 z-10 flex flex-col items-end gap-2 md:bottom-4 md:right-4">
+                {presenterId && mainId && (
+                  <LiveTile id={mainId} selfId={localId} variant="pip" className={pip} />
+                )}
                 {others.map((id) => (
-                  <LiveTile key={id} id={id} selfId={localId} className={pip} />
+                  <LiveTile key={id} id={id} selfId={localId} variant="pip" className={pip} />
                 ))}
-                {localId && <LiveTile id={localId} selfId={localId} className={pip} />}
+                {localId && <LiveTile id={localId} selfId={localId} variant="pip" className={pip} />}
               </div>
             </div>
           </div>

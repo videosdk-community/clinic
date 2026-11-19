@@ -24,13 +24,13 @@ export function RecordingList({ recordings, error, emptyText }: RecordingListPro
   if (recordings === null) return <RowSkeleton />
   if (recordings.length === 0) {
     return (
-      <p className="border-t border-hairline pt-6 text-base text-ink-secondary">{emptyText}</p>
+      <p className="rounded-2xl border border-hairline bg-card shadow-sm px-5 py-6 text-base text-ink-secondary">{emptyText}</p>
     )
   }
 
   return (
     <>
-      <ul className="flex flex-col">
+      <ul className="flex flex-col divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline bg-card shadow-sm">
         {recordings.map((recording) => (
           <RecordingRow
             key={recording.id}

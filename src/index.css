@@ -67,6 +67,9 @@
   --color-accent-hover: var(--accent-hover);
   --color-accent-tint: var(--primary-200);
   --color-accent-deep: var(--primary-850);
+  /* the primary fill's hover step, and ink for text sitting on accent-tint */
+  --color-accent-soft: var(--primary-100);
+  --color-accent-ink: var(--primary-900);
   --color-accent-ring: var(--focus-ring);
 
   /* status only - never decoration */
@@ -74,6 +77,7 @@
   --color-success-bg: var(--success-bg);
   --color-success-border: var(--success-border);
   --color-success-dot: var(--green-500);
+  --color-warning-dot: var(--amber-500);
   --color-danger-fg: var(--danger-fg);
   --color-danger-bg: var(--danger-bg);
   --color-danger-border: var(--danger-border);
@@ -86,6 +90,16 @@
   --color-info-fg: var(--info-fg);
   --color-info-bg: var(--info-bg);
   --color-info-border: var(--info-border);
+
+  /* Video. Camera and screen pixels are not themed, so the frame they sit
+     in is a fixed near-black in either theme: a letterbox bar on white reads
+     as a broken layout, on near-black it reads as a video. Anything laid over
+     those pixels (name chips, the mute control, the screen-share label) is
+     dark glass, `bg-video/60 text-on-video`, and draws status from the
+     -dot / danger-soft steps above, which hold up on dark. One rule, so a
+     chip never has to know what the camera is looking at. */
+  --color-video: var(--neutral-950);
+  --color-on-video: var(--neutral-0);
 
   /* tight corners: 4-8px on controls, 12-16px on cards and dialogs */
   --radius-xs: 4px;
@@ -103,7 +117,7 @@
   --shadow-popover: var(--elevation-popover);
   /* filled controls carry an inset hairline instead of a border */
   --shadow-hairline: inset 0 0 0 1px var(--border-default);
-  --shadow-hairline-filled: inset 0 0 0 1px rgba(37, 42, 52, 0.18);
+  --shadow-hairline-filled: var(--elevation-inset-hairline);
 
   /* literal, not var(--ease-standard) - that would be the same
      self-reference the renames exist to avoid */
@@ -120,6 +134,9 @@
   body,
   #root {
     height: 100%;
+    /* Light only (see DECISIONS.md), so native controls - the date picker,
+       form autofill, scrollbars - draw light too. */
+    color-scheme: light;
     /* Kills the trackpad's two-finger swipe-back. The gesture is a horizontal
        overscroll of whatever is under the cursor, and it chains up to the
        viewport unless something stops it - so a stray swipe would walk
@@ -142,7 +159,7 @@
 
   /* Browser furniture the design system still owns. The caret and the
      scrollbar are drawn by the browser, and left alone they are the two
-     places a dark product reverts to platform grey. */
+     places a product reverts to platform defaults. */
   input,
   textarea,
   [contenteditable] {
@@ -264,6 +281,29 @@
     *::before,
     *::after {
       transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* The one toast's position. Off the room it sits low and centred. In the
+     room it has to dodge the self-view (bottom-right), the knock card
+     (top-right), the status pills (top-centre) and Stop sharing (bottom-centre
+     of the stage), so: centred on the STAGE rather than the window when the
+     chat column is docked beside it, and above Stop sharing. On a phone the
+     self-view takes the bottom corner, so it goes under the pills instead. */
+  .toast-stack {
+    left: 50%;
+    bottom: 24px;
+  }
+  :root:has([data-room]) .toast-stack {
+    bottom: 156px;
+  }
+  :root:has([data-side-panel="docked"]) .toast-stack {
+    left: calc((100% - 320px) / 2);
+  }
+  @media (max-width: 767px) {
+    :root:has([data-room]) .toast-stack {
+      bottom: auto;
+      top: 68px;
     }
   }
 

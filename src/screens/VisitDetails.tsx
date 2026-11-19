@@ -48,14 +48,14 @@ export function VisitDetails() {
           It may belong to another account.
         </Alert>
       ) : (
-        <>
+        <div className="vsdk-enter flex flex-col gap-4 rounded-2xl border border-hairline bg-card shadow-sm p-5 sm:p-8">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-semibold text-ink">{visit.patientName}</h1>
             <Badge tone={visit.endedAt ? 'neutral' : 'success'} outline>
               {visit.endedAt ? 'Ended' : 'Upcoming'}
             </Badge>
           </div>
-          <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-base">
+          <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-base">
             <dt className="text-ink-tertiary">Scheduled</dt>
             <dd className="text-ink">{formatVisitTime(visit.scheduledAt)}</dd>
             {visit.endedAt && (
@@ -71,10 +71,10 @@ export function VisitDetails() {
                 : 'No recording consent'}
             </dd>
           </dl>
-        </>
+        </div>
       )}
 
-      <div className="mt-8 flex flex-col gap-3">
+      <div className="mt-10 flex flex-col gap-3">
         <SectionHeader title="Recordings" count={recordings?.length} />
         <RecordingList
           recordings={recordings}

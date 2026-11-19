@@ -12,7 +12,7 @@ import {
   visitLink,
   type Visit,
 } from '../lib/visits'
-import wordmark from '../assets/videosdk-wordmark-white.svg'
+import wordmark from '../assets/videosdk-wordmark-black.svg'
 
 /* The doctor's dashboard: book a visit, send its link, start it, look back.
 
@@ -112,9 +112,9 @@ export function Dashboard() {
   const ended = visits ? visits.filter((v) => v.endedAt).reverse() : null
 
   return (
-    <div className="h-full overflow-y-auto bg-canvas">
-      <header className="sticky top-0 z-10 h-14 border-b border-hairline bg-canvas/80 backdrop-blur">
-        <div className="mx-auto flex h-full w-full max-w-[760px] items-center justify-between gap-4 px-6">
+    <div className="h-full overflow-y-auto bg-subtle">
+      <header className="sticky top-0 z-10 h-14 border-b border-hairline bg-subtle/80 backdrop-blur">
+        <div className="mx-auto flex h-full w-full max-w-[760px] items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <img src={wordmark} alt="VideoSDK" className="h-3.5 shrink-0" />
             <span className="hidden h-4 w-px shrink-0 bg-hairline sm:block" />
@@ -122,16 +122,19 @@ export function Dashboard() {
           </div>
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate text-sm text-ink-tertiary">{user?.email}</span>
-            <Button variant="text" className="-mr-3 shrink-0" onClick={() => void supabase.auth.signOut()}>
+            <Button variant="text" className="-mr-3 shrink-0 max-sm:h-10" onClick={() => void supabase.auth.signOut()}>
               Sign out
             </Button>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-[760px] flex-col px-6 pt-8 pb-16 sm:pt-12">
-        <form className="vsdk-enter flex flex-col gap-4" onSubmit={(e) => void create(e)}>
-          <h1 className="text-4xl font-semibold tracking-tight text-ink">New visit</h1>
+      <div className="mx-auto flex w-full max-w-[760px] flex-col px-4 pt-6 pb-16 sm:px-6 sm:pt-12">
+        <form
+          className="vsdk-enter flex flex-col gap-4 rounded-2xl border border-hairline bg-card shadow-sm p-5 sm:p-8"
+          onSubmit={(e) => void create(e)}
+        >
+          <h1 className="text-3xl font-semibold tracking-tight text-ink">New visit</h1>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="flex flex-1 flex-col gap-1.5">
               <span className="text-sm text-ink-tertiary">Patient name</span>
@@ -219,33 +222,36 @@ function VisitList({
   if (error) return <Alert tone="danger">{error}</Alert>
   if (visits === null) return <RowSkeleton />
   if (visits.length === 0) {
-    return <p className="border-t border-hairline pt-6 text-base text-ink-secondary">{emptyText}</p>
+    return <p className="rounded-2xl border border-hairline bg-card shadow-sm px-5 py-6 text-base text-ink-secondary">{emptyText}</p>
   }
 
   return (
-    <ul className="flex flex-col">
+    <ul className="flex flex-col divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline bg-card shadow-sm">
       {visits.map((v) => (
         <li
           key={v.id}
-          className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border-b border-hairline px-2 py-3 transition-colors duration-[120ms] ease-standard last:border-b-0 hover:bg-subtle"
+          className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 transition-colors duration-[120ms] ease-standard hover:bg-subtle sm:px-5"
         >
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className="flex min-w-[160px] flex-1 flex-col gap-0.5">
             <span className="truncate text-base font-medium text-ink">{v.patientName}</span>
             <span className="truncate text-sm text-ink-tertiary">
               {formatVisitTime(v.endedAt ?? v.scheduledAt)}
             </span>
           </div>
-          <span className="flex shrink-0 items-center gap-1 max-sm:w-full max-sm:justify-end">
+          {/* The name keeps 160px, so on a phone the buttons wrap to their own
+              right-aligned line instead of squeezing the date. max-sm:h-10 is a
+              40px target for a finger; a pointer keeps the compact 32px. */}
+          <span className="ml-auto flex shrink-0 items-center gap-1">
             {onCopy && (
-              <Button variant="text" onClick={() => onCopy(v.roomId)}>
+              <Button variant="text" className="max-sm:h-10" onClick={() => onCopy(v.roomId)}>
                 Copy link
               </Button>
             )}
-            <Button variant="text" onClick={() => onDetails(v.roomId)}>
+            <Button variant="text" className="max-sm:h-10" onClick={() => onDetails(v.roomId)}>
               Details
             </Button>
             {onStart && (
-              <Button variant="secondary" onClick={() => onStart(v.roomId)}>
+              <Button variant="secondary" className="max-sm:h-10" onClick={() => onStart(v.roomId)}>
                 Start
               </Button>
             )}

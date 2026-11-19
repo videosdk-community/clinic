@@ -17,11 +17,11 @@ const SIZES: Record<IconButtonSize, string> = {
 const ICON_PX: Record<IconButtonSize, number> = { sm: 16, md: 18, lg: 20 }
 
 const VARIANTS: Record<IconButtonVariant, string> = {
-  primary: 'bg-accent text-accent-fg hover:bg-[var(--primary-100)]',
+  primary: 'bg-accent text-accent-fg hover:bg-accent-soft',
   secondary: 'bg-raised text-ink shadow-hairline hover:bg-muted',
   outlined: 'bg-transparent text-ink shadow-hairline hover:bg-muted',
   ghost: 'bg-transparent text-ink-secondary hover:bg-muted',
-  destructive: 'bg-transparent text-danger-solid hover:bg-[var(--red-100)]',
+  destructive: 'bg-transparent text-danger-solid hover:bg-danger-bg',
 }
 
 export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

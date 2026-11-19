@@ -1,26 +1,18 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { useNetworkQuality, useParticipantView, useTrack, type NetworkQuality } from '../sdk'
 import { RoomIcon } from './icons'
-import { cn } from '../design/ui'
+import { Avatar, cn } from '../design/ui'
 
 /* A tile backed by a real video track: the stage and the picture-in-picture
-   tiles are both this, at different sizes.
-
-   The camera-off placeholder is a gradient over a stable per-id hue, so a
-   participant does not change colour on re-render. */
-
-function hueFor(id: string) {
-  let h = 0
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 360
-  return h
-}
+   tiles are both this, at different sizes. With the camera off it shows the
+   person's initials on a plain light surface. */
 
 /* Three bars, lit by level. Hidden for 'unknown': no media flowing is not a
    bad connection, and a grey icon would read as one. */
 const BARS: Record<Exclude<NetworkQuality, 'unknown'>, { lit: number; tone: string }> = {
-  good: { lit: 3, tone: 'var(--success-fg)' },
-  fair: { lit: 2, tone: 'var(--warning-fg)' },
-  poor: { lit: 1, tone: 'var(--danger-fg)' },
+  good: { lit: 3, tone: 'text-success-dot' },
+  fair: { lit: 2, tone: 'text-warning-dot' },
+  poor: { lit: 1, tone: 'text-danger-soft' },
 }
 
 function SignalBars({ level }: { level: NetworkQuality }) {
@@ -28,7 +20,7 @@ function SignalBars({ level }: { level: NetworkQuality }) {
   const { lit, tone } = BARS[level]
   const label = `Connection: ${level}`
   return (
-    <span role="img" aria-label={label} title={label} className="shrink-0" style={{ color: tone }}>
+    <span role="img" aria-label={label} title={label} className={cn('shrink-0', tone)}>
       <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
         {[0, 1, 2].map((i) => (
           <rect
@@ -39,7 +31,7 @@ function SignalBars({ level }: { level: NetworkQuality }) {
             height={3 + i * 3}
             rx="0.5"
             fill="currentColor"
-            opacity={i < lit ? 1 : 0.3}
+            opacity={i < lit ? 1 : 0.35}
           />
         ))}
       </svg>
@@ -50,19 +42,25 @@ function SignalBars({ level }: { level: NetworkQuality }) {
 export interface LiveTileProps {
   id: string
   selfId: string | null
+  /** `stage` fills the visit's stage; `pip` is a small inset tile in the
+      corner, with its own border and shadow so it reads as lifted off the
+      video behind it. */
+  variant?: 'stage' | 'pip'
   /** cover fills the frame and crops; contain letterboxes and crops nothing. */
   fit?: 'cover' | 'contain'
-  /** Top-left controls, such as the doctor's mute on the patient's video. */
+  /** Sits beside the name chip, such as the doctor's mute on the patient's
+      video: the control is about that person, so it lives next to their name. */
   action?: ReactNode
   className?: string
 }
 
-export function LiveTile({ id, selfId, fit = 'cover', action, className }: LiveTileProps) {
+export function LiveTile({ id, selfId, variant = 'stage', fit = 'cover', action, className }: LiveTileProps) {
   const p = useParticipantView(id)
   const network = useNetworkQuality(id)
   const stream = useTrack(id, 'cam')
   const ref = useRef<HTMLVideoElement>(null)
   const self = id === selfId
+  const pip = variant === 'pip'
 
   useEffect(() => {
     const el = ref.current
@@ -73,69 +71,80 @@ export function LiveTile({ id, selfId, fit = 'cover', action, className }: LiveT
 
   if (!p) return null
 
-  const ring = p.isActiveSpeaker
-    ? 'inset 0 0 0 2.5px var(--primary-button)'
-    : 'inset 0 0 0 1px rgba(255,255,255,.06)'
-
-  const initials = p.name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .slice(0, 2)
+  const showVideo = p.camOn && stream
 
   return (
     <div
-      className={cn('relative overflow-hidden rounded-xl bg-inset', className)}
-      style={{ boxShadow: ring }}
+      className={cn(
+        'relative isolate overflow-hidden',
+        pip ? 'rounded-xl shadow-lg ring-2 ring-canvas' : 'rounded-2xl',
+        /* Camera pixels sit on the fixed video black, so a letterbox reads
+           as a frame; a camera that is off is just a calm surface. */
+        showVideo ? 'bg-video' : 'bg-inset',
+        className,
+      )}
     >
-      {p.camOn && stream ? (
+      {showVideo ? (
         /* Always muted. This element carries video only; audio is one
            <audio> per remote participant in the seam. An unmuted video
            element here would reintroduce the feedback howl. Self view is
-           mirrored, the way every camera preview is. */
+           mirrored, the way every camera preview is.
+
+           rounded-[inherit] on the video itself, not only overflow-hidden on
+           the tile: the mirror transform gives the video its own compositing
+           layer, and Chrome then paints its square corners straight past the
+           parent's rounded clip. */
         <video
           ref={ref}
           autoPlay
           playsInline
           muted
           className={cn(
-            'h-full w-full',
+            'h-full w-full rounded-[inherit]',
             fit === 'contain' ? 'object-contain' : 'object-cover',
             self && 'scale-x-[-1]',
           )}
         />
       ) : (
-        <div
-          className="flex h-full w-full items-center justify-center"
-          style={{ background: `linear-gradient(135deg, hsl(${hueFor(id)} 45% 26%), #0f0f12)` }}
-        >
-          <div
-            className="flex size-10 items-center justify-center rounded-[50%] text-base font-semibold"
-            style={{ background: 'var(--primary-200)', color: 'var(--primary-900)' }}
-          >
-            {initials}
-          </div>
+        <div className="flex h-full w-full items-center justify-center">
+          <Avatar name={p.name} size={pip ? 'md' : 'xl'} />
         </div>
       )}
 
-      {/* Always dark glass over video, so `dark` pins the status tokens
-          inside it to their pale variants whatever the page theme is. The
-          bars read the raw tokens, not text-success-fg: @theme resolves
-          those at :root, out of reach of this class. */}
-      <div
-        className="dark absolute bottom-1.5 left-1.5 flex h-6 max-w-[calc(100%-12px)] items-center gap-1 rounded-md px-2 text-sm text-white backdrop-blur-[4px]"
-        style={{ background: 'rgba(0,0,0,.55)' }}
-      >
-        <RoomIcon
-          name={p.micOn ? 'mic' : 'micOff'}
-          size={12}
-          style={p.micOn ? undefined : { color: 'var(--red-400)' }}
+      {/* The speaking ring is an overlay, not the tile's own box-shadow: an
+          inset shadow paints under the children, so the video would hide it. */}
+      {p.isActiveSpeaker && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_0_0_2px_var(--accent)]"
         />
-        <span className="truncate">{self ? 'You' : p.name}</span>
-        <SignalBars level={network} />
-      </div>
+      )}
 
-      {action && <div className="absolute left-2 top-2">{action}</div>}
+      {/* Dark glass over the picture, whatever the page theme: see the video
+          tokens in index.css. */}
+      <div
+        className={cn(
+          'absolute flex max-w-[calc(100%-16px)] items-center gap-1.5',
+          pip ? 'bottom-1.5 left-1.5' : 'bottom-3 left-3',
+        )}
+      >
+        <div
+          className={cn(
+            'flex min-w-0 items-center gap-1.5 rounded-md bg-video/60 text-on-video backdrop-blur-sm',
+            pip ? 'h-6 px-1.5 text-sm' : 'h-7 px-2 text-sm',
+          )}
+        >
+          <RoomIcon
+            name={p.micOn ? 'mic' : 'micOff'}
+            size={12}
+            className={cn('shrink-0', !p.micOn && 'text-danger-soft')}
+          />
+          {/* First name only on the small tile, so it is a name and not "As...". */}
+          <span className="truncate">{self ? 'You' : pip ? p.name.split(' ')[0] : p.name}</span>
+          <SignalBars level={network} />
+        </div>
+        {action}
+      </div>
     </div>
   )
 }

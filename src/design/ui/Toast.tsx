@@ -71,14 +71,12 @@ export function ToastProvider({ children }: ToastProviderProps) {
       {/* pointer-events-none on the container and auto on each card: the stack
           floats over the room, so anything not actually a toast must stay
           click-through. role/aria-live announce without stealing focus. */}
-      {/* Bottom centre, clear of the room's 64px control bar and of the
-          stage's own bottom controls (Stop sharing sits 16px above the stage
-          edge), with room to breathe. On the dashboard it is simply low. */}
+      {/* Where it sits is CSS, keyed off the room being on screen: see
+          .toast-stack in index.css. */}
       <div
         role="status"
         aria-live="polite"
-        className="pointer-events-none fixed left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2"
-        style={{ bottom: 156 }}
+        className="toast-stack pointer-events-none fixed z-50 flex w-max max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col items-center gap-2"
       >
         {toasts.map((t) => {
           const tone = TONES[t.tone]
@@ -86,15 +84,14 @@ export function ToastProvider({ children }: ToastProviderProps) {
             <div
               key={t.id}
               className={cn('pointer-events-auto flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-base leading-5')}
-              /* The tone backgrounds are translucent by design - dark theme
-                 mixes them at 25% alpha against the app's near-black chrome.
+              /* The tone backgrounds are translucent in the dark token set.
                  The card floats over live video, where that alpha would blend
-                 with whatever the camera sees. Painting the tone layer over an
-                 opaque surface gives the colour the tokens intend, on any
-                 backdrop. */
+                 with whatever the camera sees, so the tone layer is painted
+                 over an opaque surface: the colour the tokens intend, on any
+                 backdrop, in either theme. */
               style={{
                 background: `linear-gradient(0deg, ${tone.bg}, ${tone.bg}), var(--surface-overlay)`,
-                boxShadow: `inset 0 0 0 1px ${tone.bd}, 0 8px 24px rgba(0,0,0,0.45)`,
+                boxShadow: `inset 0 0 0 1px ${tone.bd}, var(--elevation-popover)`,
                 color: tone.fg,
               }}
             >

@@ -21,6 +21,7 @@ export interface SidePanelProps {
 export function SidePanel({ messages, onSend, overlay, onHide }: SidePanelProps) {
   return (
     <aside
+      data-side-panel={overlay ? 'overlay' : 'docked'}
       className={cn(
         'flex shrink-0 flex-col border-l border-line bg-card',
         /* bottom-16, not inset-y-0. The control bar is the last 64px of the
@@ -29,7 +30,7 @@ export function SidePanel({ messages, onSend, overlay, onHide }: SidePanelProps)
       )}
       style={{
         width: SIDE_PANEL_WIDTH,
-        boxShadow: overlay ? '-16px 0 48px rgba(0,0,0,.55)' : undefined,
+        boxShadow: overlay ? 'var(--elevation-lg)' : undefined,
       }}
     >
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">

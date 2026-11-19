@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { RoomIcon } from './icons'
-import { Input } from '../design/ui'
+import { Input, cn } from '../design/ui'
 import type { ChatMessage } from '../domain/visit'
 
 /* Chat, on an unpersisted pubsub topic.
@@ -42,24 +42,21 @@ export function ChatPanel({ messages, onSend }: ChatPanelProps) {
   return (
     <>
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-3">
+        {messages.length === 0 && (
+          <p className="m-auto max-w-[240px] text-center text-sm text-ink-tertiary">
+            Messages are only kept while the visit is open.
+          </p>
+        )}
         {messages.map((m) => (
           <div key={m.id} className={`flex flex-col ${m.mine ? 'items-end' : 'items-start'}`}>
             {!m.mine && <span className="mb-0.5 px-1 text-sm text-ink-tertiary">{m.who}</span>}
             <div
-              className="max-w-[85%] px-2.5 py-1.5 text-base leading-[18px]"
-              style={
+              className={cn(
+                'max-w-[85%] break-words rounded-xl px-3 py-2 text-base',
                 m.mine
-                  ? {
-                      background: 'var(--primary-button)',
-                      color: 'var(--on-primary)',
-                      borderRadius: '12px 12px 4px 12px',
-                    }
-                  : {
-                      background: 'var(--surface-inset)',
-                      color: 'var(--text-secondary)',
-                      borderRadius: '12px 12px 12px 4px',
-                    }
-              }
+                  ? 'rounded-br-xs bg-accent text-accent-fg'
+                  : 'rounded-bl-xs bg-inset text-ink',
+              )}
             >
               {m.text}
             </div>
@@ -85,7 +82,7 @@ export function ChatPanel({ messages, onSend }: ChatPanelProps) {
           disabled={!canSend}
           onClick={() => void send()}
           aria-label="Send"
-          className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border-0 bg-transparent text-ink-tertiary hover:bg-raised hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border-0 bg-transparent text-ink-tertiary hover:bg-inset hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
         >
           <RoomIcon name="send" size={16} />
         </button>

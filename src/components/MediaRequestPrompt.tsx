@@ -1,4 +1,5 @@
 import { RoomIcon } from './icons'
+import { Button } from '../design/ui'
 import type { MediaRequest } from '../sdk'
 
 /* "Dr. X asked you to turn your microphone on."
@@ -21,31 +22,25 @@ export function MediaRequestPrompt({ request, requesterName, onRespond }: MediaR
   const thing = request.kind === 'mic' ? 'microphone' : 'camera'
 
   return (
-    <div className="flex justify-center px-3 pb-1">
+    <div className="flex justify-center px-3 pb-2">
       <div
-        className="flex items-center gap-2.5 rounded-pill border border-line-strong bg-card py-1.5 pl-3 pr-1.5"
+        role="alertdialog"
+        aria-label={`${requesterName} asked you to turn your ${thing} on`}
+        className="flex w-full max-w-[520px] flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line bg-card py-2 pl-4 pr-2"
         style={{ boxShadow: 'var(--elevation-popover)' }}
       >
-        <RoomIcon name={request.kind === 'mic' ? 'mic' : 'cam'} size={16} />
-        <span className="text-base text-ink-secondary">
+        <span className="flex min-w-0 flex-1 basis-[220px] items-center gap-2.5 text-base text-ink-secondary">
+          <RoomIcon name={request.kind === 'mic' ? 'mic' : 'cam'} size={16} className="shrink-0 text-ink-tertiary" />
           {requesterName} asked you to turn your {thing} on
         </span>
-
-        <button
-          type="button"
-          onClick={() => onRespond(false)}
-          className="h-7 cursor-pointer rounded-pill border border-line-strong bg-transparent px-2.5 text-sm text-ink-secondary hover:bg-raised"
-        >
-          Not now
-        </button>
-        <button
-          type="button"
-          onClick={() => onRespond(true)}
-          className="h-7 cursor-pointer rounded-pill border-0 px-2.5 text-sm font-medium"
-          style={{ background: 'var(--primary-500)', color: 'var(--primary-on)' }}
-        >
-          Turn on
-        </button>
+        <span className="ml-auto flex shrink-0 gap-2">
+          <Button size="lg" variant="secondary" onClick={() => onRespond(false)}>
+            Not now
+          </Button>
+          <Button size="lg" onClick={() => onRespond(true)}>
+            Turn on
+          </Button>
+        </span>
       </div>
     </div>
   )

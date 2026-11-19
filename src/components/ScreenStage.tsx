@@ -33,23 +33,20 @@ export function ScreenStage({ presenterId, presenterName, isSelf, onStop }: Scre
   }, [stream])
 
   return (
-    <div className="absolute inset-0 overflow-hidden rounded-2xl" style={{ background: '#0a0a0c' }}>
+    <div className="absolute inset-0 overflow-hidden rounded-2xl bg-video">
       {stream ? (
         /* Muted like every other video element in this app. */
         <video ref={ref} autoPlay playsInline muted className="h-full w-full object-contain" />
       ) : (
         /* presenter-changed lands before the track does, so this is a real
            beat rather than a defensive branch nobody sees. */
-        <div className="flex h-full w-full items-center justify-center text-base text-ink-tertiary">
+        <div className="flex h-full w-full items-center justify-center text-base text-on-video/70">
           Waiting for {isSelf ? 'your screen' : `${presenterName}'s screen`}
         </div>
       )}
 
-      <div
-        className="absolute left-3 top-3 flex items-center gap-2 rounded-pill px-3 py-1 text-sm text-white backdrop-blur-[4px]"
-        style={{ background: 'rgba(0,0,0,.6)' }}
-      >
-        <RoomIcon name="share" size={13} />
+      <div className="absolute left-3 top-3 flex h-7 max-w-[calc(100%-24px)] items-center gap-1.5 rounded-md bg-video/60 px-2 text-sm text-on-video backdrop-blur-sm">
+        <RoomIcon name="share" size={12} className="shrink-0" />
         {isSelf ? 'You are sharing your screen' : `${presenterName} is sharing a screen`}
       </div>
 
@@ -58,7 +55,7 @@ export function ScreenStage({ presenterId, presenterName, isSelf, onStop }: Scre
           help at all. */}
       {isSelf && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-          <Button size="md" variant="destructive" onClick={onStop}>
+          <Button size="lg" variant="destructive" onClick={onStop}>
             Stop sharing
           </Button>
         </div>

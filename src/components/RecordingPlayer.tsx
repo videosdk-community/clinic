@@ -39,7 +39,7 @@ export function RecordingPlayer({ recording, onClose }: RecordingPlayerProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-video/40 p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="recording-player-title"
@@ -57,7 +57,7 @@ export function RecordingPlayer({ recording, onClose }: RecordingPlayerProps) {
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <h2
               id="recording-player-title"
-              className="truncate text-lg font-semibold text-ink-primary"
+              className="truncate text-lg font-semibold text-ink"
             >
               {recordedAt ? `Recorded ${recordedAt}` : 'Recording'}
             </h2>
@@ -72,7 +72,7 @@ export function RecordingPlayer({ recording, onClose }: RecordingPlayerProps) {
           autoPlay
           controls
           src={recording.fileUrl}
-          className="w-full rounded-lg bg-black"
+          className="w-full rounded-lg bg-video"
           style={{ aspectRatio: '16 / 9' }}
         />
 

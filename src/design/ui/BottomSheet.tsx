@@ -63,7 +63,7 @@ export function BottomSheet({ open, onClose, title, children, ...rest }: BottomS
   return (
     <div className="fixed inset-0 z-50">
       <div
-        className="absolute inset-0 bg-black/60"
+        className="absolute inset-0 bg-video/40"
         onClick={onClose}
         data-testid="sheet-scrim"
       />

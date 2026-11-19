@@ -3,7 +3,7 @@ import { Navigate, useSearchParams } from 'react-router-dom'
 import { Alert, Button, Input, Spinner } from '../design/ui'
 import { useAuth } from '../auth/context'
 import { supabase } from '../lib/supabase'
-import wordmark from '../assets/videosdk-wordmark-white.svg'
+import { BrandLockup } from '../components/BrandLockup'
 
 /* Doctor sign-in, by magic link. Patients never come here: they type a name
    on the visit link and get an anonymous session there.
@@ -43,7 +43,7 @@ export function SignIn() {
 
   if (status === 'loading') {
     return (
-      <div className="flex h-full items-center justify-center bg-canvas">
+      <div className="flex h-full items-center justify-center bg-subtle">
         <Spinner />
       </div>
     )
@@ -81,15 +81,11 @@ export function SignIn() {
   }
 
   return (
-    <div className="flex h-full items-center justify-center bg-canvas p-6">
-      <div className="flex w-full max-w-[400px] flex-col items-center gap-6">
-        <div className="flex items-center gap-3">
-          <img src={wordmark} alt="VideoSDK" className="h-5" />
-          <div className="h-5 w-px bg-hairline" />
-          <span className="text-lg font-medium text-ink">Clinic</span>
-        </div>
+    <div className="flex h-full overflow-y-auto bg-subtle p-4 sm:p-6">
+      <div className="m-auto flex w-full max-w-[400px] flex-col items-center gap-6">
+        <BrandLockup />
 
-        <div className="vsdk-enter flex w-full flex-col gap-6 rounded-2xl border border-line bg-card p-8 shadow-lg">
+        <div className="vsdk-enter flex w-full flex-col gap-6 rounded-2xl border border-hairline bg-card p-6 shadow-sm sm:p-8">
           <h1 className="text-2xl font-semibold text-ink">Doctor sign in</h1>
 
           {state === 'sent' ? (

@@ -26,7 +26,7 @@ export function LeavePrompt({ isDoctor, onStay, onLeave }: LeavePromptProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-video/40 p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="leave-prompt-title"
@@ -35,7 +35,7 @@ export function LeavePrompt({ isDoctor, onStay, onLeave }: LeavePromptProps) {
         className="w-[380px] max-w-full rounded-xl border border-line-strong bg-card p-5"
         style={{ boxShadow: 'var(--elevation-popover)' }}
       >
-        <h2 id="leave-prompt-title" className="text-lg font-semibold text-ink-primary">
+        <h2 id="leave-prompt-title" className="text-lg font-semibold text-ink">
           Leave the visit?
         </h2>
         <p className="mt-1.5 text-base text-ink-secondary">

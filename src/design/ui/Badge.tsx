@@ -8,7 +8,7 @@ export type BadgeTone = 'neutral' | 'primary' | 'success' | 'danger' | 'warning'
 
 const FILLED: Record<BadgeTone, string> = {
   neutral: 'bg-muted text-ink-secondary',
-  primary: 'bg-[var(--primary-100)] text-[var(--primary-800)]',
+  primary: 'bg-accent-soft text-accent-ink',
   success: 'bg-success-bg text-success-fg',
   danger: 'bg-danger-bg text-danger-fg',
   warning: 'bg-warning-bg text-warning-fg',
@@ -18,17 +18,16 @@ const FILLED: Record<BadgeTone, string> = {
 /* One deliberate divergence from source, in `primary` only.
 
    Every other tone draws its text from a --*-fg alias, and those aliases flip
-   between light and dark. `primary` alone uses fixed ramp literals, so source's
-   outline-primary is --primary-800 (#37265E) on a near-black page in dark -
-   about 1.3:1, which is what it looks like: unreadable.
+   between light and dark. `primary` alone uses a fixed deep-lavender ink
+   (accent-ink), which on a near-black page in dark is about 1.3:1: unreadable.
 
-   Light is left byte-identical to source; dark gets the brand tint instead, so
-   the tone follows the theme the way its five siblings already do. The prop and
+   Light keeps source's deep ink; dark gets the brand tint instead, so the tone
+   follows the theme the way its five siblings already do. The prop and
    tone names are untouched, so nothing pasted from the skill breaks. */
 const OUTLINE: Record<BadgeTone, string> = {
   neutral: 'bg-transparent text-ink-secondary shadow-[inset_0_0_0_1px_var(--border-default)]',
   primary:
-    'bg-transparent text-[var(--primary-800)] dark:text-accent-tint shadow-[inset_0_0_0_1px_var(--primary-200)]',
+    'bg-transparent text-accent-ink dark:text-accent-tint shadow-[inset_0_0_0_1px_var(--accent)]',
   success: 'bg-transparent text-success-fg shadow-[inset_0_0_0_1px_var(--success-border)]',
   danger: 'bg-transparent text-danger-fg shadow-[inset_0_0_0_1px_var(--danger-border)]',
   warning: 'bg-transparent text-warning-fg shadow-[inset_0_0_0_1px_var(--warning-border)]',

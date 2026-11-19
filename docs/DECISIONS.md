@@ -153,6 +153,40 @@ it: a patient can knock early or late. There is no calendar, booking or reminder
 Clinic keeps VideoSDK's single lavender accent and Inter, but uses the light, calm surface patients
 expect from a medical app. It does not use the design system's dark default.
 
+- **Light only.** `<html>` carries no `dark` class, so the vendored tokens resolve to their light
+  `:root` set, and `color-scheme: light` makes native controls (the date picker, autofill) match.
+  Components use the Tailwind utilities mapped in `src/index.css`, never a raw hex or a palette
+  step; the `@theme` block is the one place a palette step (`--primary-100`, `--red-600`) appears.
+  The header wordmark is the design system's black wordmark.
+- **Surfaces.** Pages outside the room are `bg-subtle` with white cards (hairline border,
+  `shadow-sm`). The room itself is white, with a `bg-subtle` stage while nobody is on it.
+- **Video surfaces stay dark.** Camera and screen pixels are not themed, so the frame they sit in is
+  a fixed near-black (`--color-video`, `--neutral-950`) in either theme. A letterbox bar on white
+  reads as a broken layout; on near-black it reads as a video. A camera that is off is not video,
+  so that tile is a light `bg-inset` surface with the person's initials.
+- **Chips over video are dark glass, always.** The name chip, the network bars, the doctor's mute
+  control and the screen-share label are all `bg-video/60 text-on-video`, whatever the camera shows
+  and whatever the page theme. Their status colours use the steps that hold up on dark
+  (`success-dot`, `warning-dot`, `danger-soft`), not the light `--*-fg` aliases. One rule, so a
+  chip never has to know what is behind it. Status pills at the top of the stage (Recording,
+  Reconnecting, waiting for consent) are opaque and keep their own tone, so they read on anything.
+- **The doctor's mute sits beside the patient's name chip**, in the same glass, rather than alone
+  in a corner: it is about that person. Its hit area is widened to 40px without growing the chip.
+- **Red is for two things.** Solid red is End visit and a running recording. Being muted or having
+  the camera off is a red *tint* (`danger-bg` / `danger-fg`), still answerable at a glance but not
+  competing with the way out. The "Live" dot is green.
+- **The admit card's identity check.** The card writes out "Typed: X" and "Expected: Y" on their
+  own lines and never truncates either, since comparing them is the whole point. When they differ
+  after trimming, collapsing spaces and ignoring case, the row shows a warning-tone box ("The names
+  do not match. Check who this is before you admit them."); when they match, one quiet green line.
+  The check informs; it never disables Admit, because a parent or carer may well knock.
+- **Toasts dodge the room.** Off the room they sit low and centred. In the room they are centred
+  on the stage (not the window, when chat is docked) above Stop sharing, and on a phone, where the
+  self-view takes the bottom corner, just under the status pills. This is CSS keyed off
+  `[data-room]`, so the toast primitive stays unaware of screens.
+- **Phone tap targets are 40px.** Compact 32px buttons get `max-sm:h-10`; small chips over video
+  extend their hit area with an `::after` instead of growing.
+
 ## The network indicator is the app's reading of raw stats
 
 The SDK has no quality score (see "Per-participant network stats have no score" below), so each

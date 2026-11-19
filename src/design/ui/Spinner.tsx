@@ -13,7 +13,7 @@ export interface SpinnerProps extends HTMLAttributes<HTMLSpanElement> {
 
 export function Spinner({
   size = 20,
-  color = 'var(--primary-button)',
+  color = 'var(--focus-ring)',
   thickness = 2.5,
   className,
   ...rest

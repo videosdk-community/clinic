@@ -1,4 +1,4 @@
-import { Badge, Button } from '../design/ui'
+import { Button } from '../design/ui'
 import { RoomIcon } from './icons'
 import { formatDuration, formatRecordedAt, formatSize, type Recording } from '../lib/recordings'
 
@@ -15,7 +15,7 @@ export function RecordingRow({ recording, onPlay }: RecordingRowProps) {
   const size = formatSize(recording.sizeBytes)
 
   return (
-    <li className="group flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border-b border-hairline px-2 py-3 transition-colors duration-[120ms] ease-standard last:border-b-0 hover:bg-subtle">
+    <li className="flex items-center gap-3 px-4 py-3 transition-colors duration-[120ms] ease-standard hover:bg-subtle sm:px-5">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-inset text-ink-secondary">
         <RoomIcon name="record" size={18} />
       </span>
@@ -23,15 +23,14 @@ export function RecordingRow({ recording, onPlay }: RecordingRowProps) {
         <span className="truncate text-base font-medium text-ink">
           {recordedAt ? `Recorded ${recordedAt}` : 'Recording'}
         </span>
-        <span className="truncate text-sm text-ink-tertiary">{size || recording.id}</span>
+        {/* Duration with the size, not as a separate badge: on a phone the
+            badge took the width the title needed. */}
+        <span className="truncate text-sm text-ink-tertiary">
+          {formatDuration(recording.durationSeconds)} · {size || recording.id}
+        </span>
       </div>
-      <span className="shrink-0">
-        <Badge tone="neutral" outline>
-          {formatDuration(recording.durationSeconds)}
-        </Badge>
-      </span>
-      <span className="flex shrink-0 items-center gap-1 max-sm:w-full max-sm:justify-end">
-        <Button variant="secondary" onClick={onPlay}>
+      <span className="flex shrink-0 items-center">
+        <Button variant="secondary" className="max-sm:h-10" onClick={onPlay}>
           Play
         </Button>
       </span>

@@ -119,7 +119,7 @@ export function RoomGate({ session, roomId, name, onExit }: RoomGateProps) {
   }
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 bg-canvas p-6 text-center">
+    <div className="flex h-full flex-col items-center justify-center gap-3 bg-subtle p-6 text-center">
       <span className="text-xl font-semibold text-ink">
         {status === 'failed' ? 'Could not join the visit' : 'Joining the visit'}
       </span>

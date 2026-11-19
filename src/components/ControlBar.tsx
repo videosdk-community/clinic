@@ -1,7 +1,7 @@
 import { CtrlBtn } from './CtrlBtn'
 import { useState } from 'react'
 import { RoomIcon, type IconName } from './icons'
-import { BottomSheet } from '../design/ui'
+import { BottomSheet, cn } from '../design/ui'
 import { useDeviceClass } from '../lib/useDeviceClass'
 
 /* The control bar: mic, camera, screen share, chat, leave. The doctor also
@@ -142,7 +142,9 @@ function DesktopControlBar(props: ControlBarProps) {
       {/* Counts from when this participant mounted: the SDK exposes no session
           start time to anchor on. */}
       <div className="flex min-w-0 flex-1 items-center justify-end gap-2 overflow-hidden whitespace-nowrap text-sm text-ink-tertiary">
-        <span className="h-1.5 w-1.5 shrink-0 rounded-pill" style={{ background: 'var(--red-600)' }} />
+        {/* Green, not red: being connected is good news, and red in this room
+            means a recording or the way out. */}
+        <span className="h-1.5 w-1.5 shrink-0 rounded-pill bg-success-dot" />
         <span className="hidden font-medium text-ink-secondary lg:inline">Live</span>
         {elapsed}
       </div>
@@ -175,8 +177,10 @@ function SheetRow({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-4 py-3 text-left disabled:cursor-not-allowed disabled:opacity-40"
-      style={active ? { background: 'var(--surface-raised)' } : undefined}
+      className={cn(
+        'flex min-h-12 w-full cursor-pointer items-center gap-3 border-0 px-4 py-3 text-left hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-40',
+        active ? 'bg-inset' : 'bg-transparent',
+      )}
     >
       <RoomIcon name={icon} size={18} className="text-ink-secondary" />
       <span className="flex-1 text-base text-ink">{label}</span>

@@ -11,10 +11,10 @@ export type PresenceStatus = 'online' | 'away' | 'busy' | 'offline'
 const SIZES = { xs: 20, sm: 24, md: 32, lg: 40, xl: 56 } as const
 
 const STATUS_COLOR: Record<PresenceStatus, string> = {
-  online: 'var(--green-500)',
-  away: 'var(--amber-500)',
-  busy: 'var(--red-500)',
-  offline: 'var(--neutral-400)',
+  online: 'bg-success-dot',
+  away: 'bg-warning-dot',
+  busy: 'bg-danger-solid',
+  offline: 'bg-line-strong',
 }
 
 function px(size: AvatarSize): number {
@@ -51,7 +51,7 @@ export function Avatar({
       <span
         className={cn(
           'inline-flex items-center justify-center overflow-hidden font-semibold leading-none',
-          'bg-accent-tint text-[var(--primary-900)] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]',
+          'bg-accent-tint text-accent-ink shadow-hairline-filled',
           square ? 'rounded-md' : 'rounded-full',
         )}
         style={{ width: s, height: s, fontSize: Math.round(s * 0.4) }}
@@ -64,8 +64,11 @@ export function Avatar({
       </span>
       {status ? (
         <span
-          className="absolute -right-px -bottom-px rounded-full shadow-[0_0_0_2px_var(--surface-card)]"
-          style={{ width: dot, height: dot, background: STATUS_COLOR[status] }}
+          className={cn(
+            'absolute -right-px -bottom-px rounded-full shadow-[0_0_0_2px_var(--surface-card)]',
+            STATUS_COLOR[status],
+          )}
+          style={{ width: dot, height: dot }}
         />
       ) : null}
     </span>

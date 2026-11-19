@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Alert, Button, Input, Spinner } from '../design/ui'
 import { RoomGate, type ExitReason } from './RoomGate'
+import { BrandLockup } from '../components/BrandLockup'
 import { Precall, type JoinDetails } from './Precall'
 import { RoomProvider } from '../sdk'
 import { useSession } from '../session/useSession'
@@ -29,7 +30,7 @@ export function JoinRoute() {
 
 function Centered({ label }: { label: string }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 bg-canvas">
+    <div className="flex h-full flex-col items-center justify-center gap-3 bg-subtle">
       <Spinner />
       <span className="text-base text-ink-secondary">{label}</span>
     </div>
@@ -62,39 +63,42 @@ function PatientEntry({ roomId }: { roomId: string }) {
   }
 
   return (
-    <div className="flex h-full items-center justify-center bg-canvas p-6">
-      <div className="vsdk-enter flex w-full max-w-[400px] flex-col gap-6 rounded-2xl border border-line bg-card p-8 shadow-lg">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold text-ink">Join your visit</h1>
-          <p className="text-base text-ink-secondary">
-            No account needed. Your doctor will see this name when you ask to join.
+    <div className="flex h-full overflow-y-auto bg-subtle p-4 sm:p-6">
+      <div className="m-auto flex w-full max-w-[400px] flex-col items-center gap-6">
+        <BrandLockup />
+        <div className="vsdk-enter flex w-full flex-col gap-6 rounded-2xl border border-hairline bg-card p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-1.5">
+            <h1 className="text-2xl font-semibold text-ink">Join your visit</h1>
+            <p className="text-base text-ink-secondary">
+              No account needed. Your doctor will see this name when you ask to join.
+            </p>
+          </div>
+          <form className="flex flex-col gap-3" onSubmit={(e) => void submit(e)}>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm text-ink-tertiary">Your name</span>
+              <Input
+                size="lg"
+                required
+                autoFocus
+                maxLength={80}
+                autoComplete="name"
+                value={name}
+                error={Boolean(error)}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            {error && <Alert tone="danger">{error}</Alert>}
+            <Button size="lg" type="submit" disabled={busy || name.trim() === ''}>
+              {busy ? 'Getting you in' : 'Continue'}
+            </Button>
+          </form>
+          <p className="text-sm text-ink-tertiary">
+            Are you the doctor?{' '}
+            <Link className="text-ink-link hover:underline" to={`/signin?next=${encodeURIComponent(`/v/${roomId}`)}`}>
+              Sign in
+            </Link>
           </p>
         </div>
-        <form className="flex flex-col gap-3" onSubmit={(e) => void submit(e)}>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm text-ink-tertiary">Your name</span>
-            <Input
-              size="lg"
-              required
-              autoFocus
-              maxLength={80}
-              autoComplete="name"
-              value={name}
-              error={Boolean(error)}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-          {error && <Alert tone="danger">{error}</Alert>}
-          <Button size="lg" type="submit" disabled={busy || name.trim() === ''}>
-            {busy ? 'Getting you in' : 'Continue'}
-          </Button>
-        </form>
-        <p className="text-sm text-ink-tertiary">
-          Are you the doctor?{' '}
-          <Link className="text-ink-link hover:underline" to={`/signin?next=${encodeURIComponent(`/v/${roomId}`)}`}>
-            Sign in
-          </Link>
-        </p>
       </div>
     </div>
   )
@@ -112,32 +116,27 @@ function VisitJoin({ roomId }: { roomId: string }) {
     const ended = error?.code === 'visit_ended'
     const missing = error?.code === 'visit_not_found'
     return (
-      <div className="flex h-full items-center justify-center bg-canvas p-6">
-        <div className="flex w-full max-w-[420px] flex-col gap-4">
-          <Alert
-            tone={ended ? 'info' : 'danger'}
-            title={ended ? 'Visit ended' : missing ? 'Visit not found' : 'Cannot open this visit'}
-          >
-            {ended
-              ? 'This visit is over, and the link no longer opens it.'
-              : missing
-                ? 'Check the link you were sent. It may be incomplete.'
-                : (error?.message ?? 'Something went wrong.')}
-          </Alert>
-          <div className="flex justify-center gap-2">
-            {!ended && !missing && (
-              <Button size="lg" onClick={retry}>
-                Try again
-              </Button>
-            )}
-            {!isPatient && (
-              <Button size="lg" variant="secondary" onClick={() => navigate('/')}>
-                Back to dashboard
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
+      <Notice
+        title={ended ? 'Visit ended' : missing ? 'Visit not found' : 'Cannot open this visit'}
+        body={
+          ended
+            ? 'This visit is over, and the link no longer opens it.'
+            : missing
+              ? 'Check the link you were sent. It may be incomplete.'
+              : (error?.message ?? 'Something went wrong.')
+        }
+      >
+        {!ended && !missing && (
+          <Button size="lg" onClick={retry}>
+            Try again
+          </Button>
+        )}
+        {!isPatient && (
+          <Button size="lg" variant="secondary" onClick={() => navigate('/')}>
+            Back to dashboard
+          </Button>
+        )}
+      </Notice>
     )
   }
 
@@ -259,22 +258,19 @@ function PrecallThenRoom({
    UNMOUNTED, so "declined" can never be confused with "still connecting". */
 const EXIT_COPY: Record<
   Exclude<ExitReason, 'ask-again'>,
-  { tone: 'info' | 'danger'; title: string; body: string; canAskAgain: boolean }
+  { title: string; body: string; canAskAgain: boolean }
 > = {
   declined: {
-    tone: 'info',
     title: 'The doctor did not let you in',
     body: 'They may be finishing another visit, or expecting you at a different time. You can ask again.',
     canAskAgain: true,
   },
   left: {
-    tone: 'info',
     title: 'You left the visit',
     body: 'You can join again from this page while the visit is still open.',
     canAskAgain: true,
   },
   ended: {
-    tone: 'info',
     title: 'Visit ended',
     body: 'The doctor ended the visit. You can close this page.',
     canAskAgain: false,
@@ -282,7 +278,6 @@ const EXIT_COPY: Record<
   /* participantId is the Supabase user id, so one browser session is one
      seat and the newer tab evicts the older. */
   evicted: {
-    tone: 'danger',
     title: 'This visit is open in another tab',
     body: 'One browser can hold one seat, and the newest tab keeps it. Close the others and rejoin here.',
     canAskAgain: true,
@@ -301,37 +296,37 @@ function ExitScreen({
   onHome: () => void
 }) {
   const copy = EXIT_COPY[reason]
-  const home = isDoctor && (
-    <Button size="lg" variant="secondary" onClick={onHome}>
-      Back to dashboard
-    </Button>
-  )
-
-  /* The end of a visit is not an error, so it does not get an error card. */
-  if (reason === 'ended') {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 bg-canvas p-6 text-center">
-        <span className="text-2xl font-semibold text-ink">{copy.title}</span>
-        <span className="max-w-[420px] text-base text-ink-secondary">{copy.body}</span>
-        {home}
-      </div>
-    )
-  }
-
   return (
-    <div className="flex h-full items-center justify-center bg-canvas p-6">
-      <div className="flex w-full max-w-[420px] flex-col gap-4">
-        <Alert tone={copy.tone} title={copy.title}>
-          {copy.body}
-        </Alert>
-        <div className="flex justify-center gap-2">
-          {copy.canAskAgain && (
-            <Button size="lg" onClick={onAskAgain}>
-              {reason === 'declined' ? 'Ask again' : 'Join again'}
-            </Button>
-          )}
-          {home}
+    <Notice title={copy.title} body={copy.body}>
+      {copy.canAskAgain && (
+        <Button size="lg" onClick={onAskAgain}>
+          {reason === 'declined' ? 'Ask again' : 'Join again'}
+        </Button>
+      )}
+      {isDoctor && (
+        <Button size="lg" variant="secondary" onClick={onHome}>
+          Back to dashboard
+        </Button>
+      )}
+    </Notice>
+  )
+}
+
+/* Every stopping point outside the room - the visit is over, the link is
+   wrong, the doctor said no - as one calm card. None of these is an alarm to
+   the person reading it, so none gets an alarm colour; the words carry it.
+   Buttons stack full-width on a phone, side by side from sm up. */
+function Notice({ title, body, children }: { title: string; body: string; children?: ReactNode }) {
+  return (
+    <div className="flex h-full overflow-y-auto bg-subtle p-4 sm:p-6">
+      <div className="vsdk-enter m-auto flex w-full max-w-[420px] flex-col gap-6 rounded-2xl border border-hairline bg-card p-6 text-center shadow-sm sm:p-8">
+        <div className="flex flex-col gap-1.5">
+          <h1 className="text-2xl font-semibold text-ink">{title}</h1>
+          <p className="text-base text-ink-secondary">{body}</p>
         </div>
+        {/* empty:hidden, not a truthiness check: `children` is an array of
+            falses when no button applies, which is truthy. */}
+        <div className="flex flex-col gap-2 empty:hidden sm:flex-row sm:justify-center">{children}</div>
       </div>
     </div>
   )

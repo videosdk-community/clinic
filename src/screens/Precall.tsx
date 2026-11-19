@@ -3,7 +3,7 @@ import { ConnectionCheck } from '../components/ConnectionCheck'
 import { MicMeter } from '../components/MicMeter'
 import { PermissionHelp } from '../components/PermissionHelp'
 import { RoomIcon } from '../components/icons'
-import { Button, Select, Spinner } from '../design/ui'
+import { Button, Select, Spinner, cn } from '../design/ui'
 import { usePrecall, usePrecallTest, type PrecallTracks } from '../sdk'
 
 /* Precall: check the devices before the other side sees you.
@@ -12,6 +12,10 @@ import { usePrecall, usePrecallTest, type PrecallTracks } from '../sdk'
    MeetingProvider's reinitialiseMeetingOnConfigChange defaults to false, so
    custom tracks are read on its first mount and ignored afterwards - the
    handoff only works if the tracks exist before the provider exists. */
+
+/* Mic or camera off: the same red tint as the room's control bar, so "off"
+   looks the same before and after joining. */
+const OFF = 'bg-danger-bg text-danger-fg shadow-[inset_0_0_0_1px_var(--danger-border)]'
 
 export interface JoinDetails {
   tracks: PrecallTracks
@@ -89,7 +93,7 @@ export function Precall({ onJoin, greeting, name, joinLabel, notice, busy = fals
   }
 
   return (
-    <div className="flex h-full overflow-y-auto bg-canvas p-4 md:p-6">
+    <div className="flex h-full overflow-y-auto bg-subtle p-4 md:p-6">
       <div className="m-auto flex w-full max-w-[880px] flex-col items-center gap-6">
         <div className="flex flex-col items-center gap-1">
           <h1 className="text-2xl font-semibold text-ink">Ready to join?</h1>
@@ -125,8 +129,10 @@ export function Precall({ onJoin, greeting, name, joinLabel, notice, busy = fals
         {p.state === 'granted' && (
           <div className="flex w-full flex-col gap-5 md:flex-row">
             <div
-              className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-inset md:w-[520px]"
-              style={{ boxShadow: '0 24px 64px rgba(0,0,0,.45), 0 0 0 1px var(--border-default)' }}
+              className={cn(
+                'relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-line shadow-md md:w-[520px]',
+                p.camOn && p.preview ? 'bg-video' : 'bg-inset',
+              )}
             >
               {p.camOn && p.preview ? (
                 /* Muted, always. An unmuted preview of your own microphone is
@@ -136,7 +142,7 @@ export function Precall({ onJoin, greeting, name, joinLabel, notice, busy = fals
                   autoPlay
                   playsInline
                   muted
-                  className="h-full w-full scale-x-[-1] object-cover"
+                  className="h-full w-full scale-x-[-1] rounded-[inherit] object-cover"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-base text-ink-tertiary">
@@ -148,17 +154,16 @@ export function Precall({ onJoin, greeting, name, joinLabel, notice, busy = fals
                   happens to see, and a mid-grey fill disappears against a
                   bright wall or a window. The gradient costs nothing and makes
                   them legible over any frame. */}
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/60 to-transparent" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-video/60 to-transparent" />
               <div className="absolute inset-x-0 bottom-3 flex justify-center gap-2">
                 <button
                   type="button"
                   aria-label={p.micOn ? 'Mute yourself' : 'Unmute yourself'}
                   onClick={() => p.setMicOn(!p.micOn)}
-                  className="flex size-10 cursor-pointer items-center justify-center rounded-pill border-0 backdrop-blur-sm"
-                  style={{
-                    background: p.micOn ? 'rgba(24,24,27,.72)' : 'var(--red-600)',
-                    color: '#fff',
-                  }}
+                  className={cn(
+                    'flex size-10 cursor-pointer items-center justify-center rounded-pill border-0 backdrop-blur-sm',
+                    p.micOn ? 'bg-video/60 text-on-video hover:bg-video/80' : OFF,
+                  )}
                 >
                   <RoomIcon name={p.micOn ? 'mic' : 'micOff'} size={18} />
                 </button>
@@ -166,11 +171,10 @@ export function Precall({ onJoin, greeting, name, joinLabel, notice, busy = fals
                   type="button"
                   aria-label={p.camOn ? 'Turn camera off' : 'Turn camera on'}
                   onClick={() => p.setCamOn(!p.camOn)}
-                  className="flex size-10 cursor-pointer items-center justify-center rounded-pill border-0 backdrop-blur-sm"
-                  style={{
-                    background: p.camOn ? 'rgba(24,24,27,.72)' : 'var(--red-600)',
-                    color: '#fff',
-                  }}
+                  className={cn(
+                    'flex size-10 cursor-pointer items-center justify-center rounded-pill border-0 backdrop-blur-sm',
+                    p.camOn ? 'bg-video/60 text-on-video hover:bg-video/80' : OFF,
+                  )}
                 >
                   <RoomIcon name={p.camOn ? 'cam' : 'camOff'} size={18} />
                 </button>

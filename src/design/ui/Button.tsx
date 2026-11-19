@@ -29,14 +29,14 @@ const ICON_PX: Record<ButtonSize, number> = { sm: 14, md: 16, lg: 18 }
 
 const VARIANTS: Record<ButtonVariant, string> = {
   // lavender fill, near-black ink, inset hairline instead of a border
-  primary: 'bg-accent text-accent-fg shadow-hairline-filled hover:bg-[var(--primary-100)]',
+  primary: 'bg-accent text-accent-fg shadow-hairline-filled hover:bg-accent-soft',
   secondary: 'bg-raised text-ink shadow-hairline hover:bg-muted',
   outlined: 'bg-transparent text-ink shadow-hairline hover:bg-muted',
   text: 'bg-transparent text-ink hover:bg-muted',
   link: 'bg-transparent text-ink-link hover:underline',
   destructive: 'bg-danger-solid text-white hover:bg-danger-hover',
   'destructive-outline':
-    'bg-transparent text-danger-solid shadow-[inset_0_0_0_1px_var(--red-200)] hover:bg-[var(--red-100)]',
+    'bg-transparent text-danger-solid shadow-[inset_0_0_0_1px_var(--danger-border)] hover:bg-danger-bg',
 }
 
 const BASE =

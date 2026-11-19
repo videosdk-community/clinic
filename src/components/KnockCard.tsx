@@ -20,21 +20,25 @@ export function KnockCard({ waiting, expectedName, onRespond }: KnockCardProps) 
 
   return (
     <div
-      className="pointer-events-auto w-[312px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-line-strong bg-card"
+      role="region"
+      aria-label="Waiting to join"
+      className="pointer-events-auto w-[360px] max-w-[calc(100vw-40px)] overflow-y-auto rounded-2xl border border-line bg-card"
       style={{ boxShadow: 'var(--elevation-popover)' }}
     >
-      <div className="px-3 pb-1 pt-2 text-xs uppercase tracking-wide text-ink-tertiary">
+      <div className="px-4 pb-1 pt-3 text-sm font-semibold text-ink">
         {waiting.length === 1 ? 'Waiting to join' : `Waiting to join (${waiting.length})`}
       </div>
 
-      {waiting.map((request) => (
-        <KnockRow
-          key={request.participantId}
-          request={request}
-          expectedName={expectedName}
-          onRespond={onRespond}
-        />
-      ))}
+      <div className="divide-y divide-hairline">
+        {waiting.map((request) => (
+          <KnockRow
+            key={request.participantId}
+            request={request}
+            expectedName={expectedName}
+            onRespond={onRespond}
+          />
+        ))}
+      </div>
     </div>
   )
 }

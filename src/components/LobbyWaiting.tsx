@@ -50,17 +50,17 @@ export function LobbyWaiting({ doctor, when, name, onAskAgain, onLeave }: LobbyW
   const canAskAgain = seconds >= PROBABLY_ABSENT
 
   return (
-    <div className="flex h-full items-center justify-center bg-canvas p-6">
-      <div className="flex w-full max-w-[440px] flex-col items-center gap-5 text-center">
+    <div className="flex h-full overflow-y-auto bg-subtle p-4 sm:p-6">
+      <div className="vsdk-enter m-auto flex w-full max-w-[440px] flex-col items-center gap-6 rounded-2xl border border-hairline bg-card p-6 text-center shadow-sm sm:p-8">
         <Spinner size={28} />
 
-        <div className="flex flex-col gap-2">
-          <span className="text-xl font-semibold text-ink">{headline}</span>
-          <span className="text-base leading-[22px] text-ink-secondary">{detail}</span>
+        <div className="flex flex-col gap-2" aria-live="polite">
+          <h1 className="text-xl font-semibold text-ink">{headline}</h1>
+          <p className="text-base leading-[22px] text-ink-secondary">{detail}</p>
         </div>
 
         {/* Which door they knocked on, and under what name. */}
-        <div className="flex w-full flex-col gap-1 rounded-xl border border-line bg-card px-4 py-3">
+        <div className="flex w-full flex-col gap-1 rounded-xl bg-inset px-4 py-3">
           <span className="text-base font-medium text-ink">
             Visit with {doctor}
             {when && `, ${when}`}
@@ -68,7 +68,7 @@ export function LobbyWaiting({ doctor, when, name, onAskAgain, onLeave }: LobbyW
           <span className="text-sm text-ink-tertiary">Joining as {name}</span>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           {canAskAgain && (
             <Button size="lg" onClick={onAskAgain}>
               Ask again

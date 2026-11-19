@@ -40,7 +40,7 @@ export function Input({
   /* The ring is an inset box-shadow, not a border, so it never shifts layout
      when it thickens on focus. Error outranks focus, deliberately. */
   const ring = error
-    ? 'inset 0 0 0 1px var(--red-500)'
+    ? 'inset 0 0 0 1px var(--danger-fg)'
     : focus
       ? 'inset 0 0 0 1.5px var(--focus-ring)'
       : 'inset 0 0 0 1px var(--border-default)'

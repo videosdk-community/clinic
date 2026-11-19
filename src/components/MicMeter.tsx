@@ -51,11 +51,7 @@ export function MicMeter({ stream }: { stream: MediaStream | undefined }) {
   return (
     <div className="flex items-center gap-2" aria-hidden>
       <div className="h-1.5 flex-1 overflow-hidden rounded-pill bg-inset">
-        <div
-          ref={barRef}
-          className="h-full w-0 rounded-pill"
-          style={{ background: 'var(--primary-button)' }}
-        />
+        <div ref={barRef} className="h-full w-0 rounded-pill bg-accent-ring" />
       </div>
     </div>
   )

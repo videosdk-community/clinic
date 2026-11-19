@@ -3,7 +3,7 @@ import type { CSSProperties, MouseEvent } from 'react'
 import { cn } from './cn'
 
 /* Rebuilt from components/forms/Select.jsx + Select.d.ts. A popover dropdown
-   rather than a native <select>, so it can be styled consistently in dark.
+   rather than a native <select>, so it can be styled consistently with the rest of the form.
 
    Source reaches for var(--font-sans) and var(--shadow-popover); both names
    are re-emitted by @theme here, so they are replaced with the mapped
@@ -61,7 +61,7 @@ export function Select({
   }, [])
 
   const ring = error
-    ? 'inset 0 0 0 1px var(--red-500)'
+    ? 'inset 0 0 0 1px var(--danger-fg)'
     : open
       ? 'inset 0 0 0 1.5px var(--focus-ring)'
       : 'inset 0 0 0 1px var(--border-default)'
