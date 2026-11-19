@@ -10,7 +10,7 @@ import { RecordingConsentPrompt } from '../components/RecordingConsentPrompt'
 import { ScreenStage } from '../components/ScreenStage'
 import { SidePanel } from '../components/SidePanel'
 import { BottomSheet, Button, Spinner, useToast } from '../design/ui'
-import { admitPatient, endVisit } from '../lib/visits'
+import { admitPatient, endVisit, wasAdmitted } from '../lib/visits'
 import { useDeviceClass } from '../lib/useDeviceClass'
 import { useElapsedSeconds } from '../lib/useElapsedSeconds'
 import { useExitGuard } from '../lib/useExitGuard'
@@ -147,8 +147,36 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
         toast('Admitted, but not saved. If they drop out, they will knock again.', 'warning')
       }
     }
+    setUnknownKnocks((s) => without(s, id))
     await actions.respondEntry(id, allow)
   }
+
+  /* A knock from someone the doctor already admitted is a reconnect, not a
+     new arrival. A patient who joined on ask_join keeps that token, and when
+     their network drops the SDK's own reconnect goes back through the lobby:
+     they sit on "Reconnecting..." and the doctor gets a fresh card. So every
+     knock is checked against the visit's admitted list first, and a match is
+     let straight back in. The id is the participantId inside a token our
+     server signed, so a stranger cannot claim it. Only knocks that are not on
+     the list reach the card. */
+  const [unknownKnocks, setUnknownKnocks] = useState<ReadonlySet<string>>(new Set())
+  const checking = useRef(new Set<string>())
+  useEffect(() => {
+    if (!isDoctor) return
+    for (const { participantId: id } of waiting) {
+      if (unknownKnocks.has(id) || checking.current.has(id)) continue
+      checking.current.add(id)
+      wasAdmitted(roomId, id)
+        .then((admitted) => {
+          if (admitted) void actions.respondEntry(id, true)
+          else setUnknownKnocks((s) => new Set(s).add(id))
+        })
+        /* When the check cannot answer, the doctor decides. */
+        .catch(() => setUnknownKnocks((s) => new Set(s).add(id)))
+        .finally(() => checking.current.delete(id))
+    }
+  }, [isDoctor, waiting, unknownKnocks, roomId, actions])
+  const knocks = waiting.filter((r) => unknownKnocks.has(r.participantId))
 
   /* Mute is real; unmute only asks, and the patient answers on their side. */
   const moderate = isDoctor && main && (
@@ -260,7 +288,7 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
               {isDoctor && (
                 <div className="absolute right-3 top-3 z-20">
                   <KnockCard
-                    waiting={waiting}
+                    waiting={knocks}
                     expectedName={session.patientName}
                     onRespond={(id, allow) => void respond(id, allow)}
                   />
@@ -341,4 +369,11 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
       </div>
     </div>
   )
+}
+
+function without(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
+  if (!set.has(id)) return set
+  const next = new Set(set)
+  next.delete(id)
+  return next
 }

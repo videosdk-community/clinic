@@ -89,6 +89,19 @@ export async function admitPatient(roomId: string, participantId: string): Promi
   await apiPost<{ ok: true }>('/api/admit', { roomId, participantId })
 }
 
+/** Whether this participant was already admitted to the visit. Read under RLS,
+    so it answers for the owner only - which is the doctor, the only caller. */
+export async function wasAdmitted(roomId: string, participantId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('visits')
+    .select('admitted')
+    .eq('room_id', roomId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return ((data?.admitted as string[] | undefined) ?? []).includes(participantId)
+}
+
 /** The patient's consent to recording, written from their own session.
     The server answers 403 not_admitted and 409 visit_ended. */
 export async function giveRecordingConsent(roomId: string): Promise<string> {

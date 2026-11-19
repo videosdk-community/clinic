@@ -208,6 +208,22 @@ camera switch, a mute) or when "Run again" is pressed.
 - **Timing.** At the 10000ms sampling floor a run took 10.8-11.4s. Progress is timed from the first
   `onStatsChange`, because the media check before sampling does not report.
 
+## A reconnect from an admitted patient is let back in
+
+When a patient who joined on `ask_join` loses their network, the SDK reconnects them on that same
+token, which means knocking again. Without help the patient waits on "Reconnecting..." until the
+doctor notices a second card for the person already on their screen.
+
+So the doctor's client checks every knock against the visit's `admitted` list (a select on its own
+row, under RLS) before showing a card. A match is admitted straight away with `respondEntry`; only
+knocks that are not on the list, or that the check could not answer, reach the card. The
+participant id is the one inside a token our server signed, so a stranger cannot claim an admitted
+patient's id.
+
+Measured 2026-11-19: patient offline about 5s, back in with video both ways 5.3-5.9s after the
+network returned, and no card on the doctor's side. The doctor must be in the room for this, which
+they are whenever there is a visit to reconnect to.
+
 ## What the SDK measured before the features were built
 
 Probed 2026-11-19 on react-sdk 1.3.0, Chrome with fake devices, local `vercel dev`. These are facts
@@ -236,7 +252,10 @@ offline:
 - For 40s: `RECONNECTING` re-emitted roughly every 5s, `CONNECTED` 3.2s after the network came back.
   No `FAILED`, and the doctor never lost the patient's tile.
 
-The app needs no reconnect logic of its own beyond showing the state.
+That probe held `allow_join`. A patient on their first entry holds `ask_join`, and for them the
+SDK's reconnect goes back through the lobby: the full-flow drive saw the patient sit on
+"Reconnecting..." indefinitely while the doctor got a fresh knock card for someone already in the
+visit. See "A reconnect from an admitted patient is let back in" for the fix.
 
 ## Ported from Classroom
 
