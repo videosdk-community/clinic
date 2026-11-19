@@ -73,14 +73,24 @@ part of the security model.
    device knocks again.
 5. Admission ends when the visit ends.
 
-**Known gap.** The VideoSDK lobby docs say any `allow_join` holder "can accept or reject others' join
-requests". The patient UI ignores `onEntryRequested`, so the doctor's card stays the only admit
-button on screen. Even so, an admitted patient with devtools could admit a stranger. This was
-accepted because the gap only opens for someone the doctor already let in.
+Measured 2026-11-19 (react-sdk 1.3.0, two to four Chrome participants with fake devices): a patient
+who reloads during the visit sees "Join the visit" instead of "Ask to join" and reaches `CONNECTED`
+2.8s after the click, with no card on the doctor's side.
 
-**Unverified:** Classroom measured `onEntryRequested` firing on clients that hold `allow_mod`, while
-the docs say `allow_join`. If Classroom was right, a patient with `allow_join` and no `allow_mod`
-never receives knocks and the gap may close. Measure it before writing the rejoin flow.
+**Known gap, measured.** `onEntryRequested` fires on every `allow_join` holder, exactly as the lobby
+docs say. With a stranger knocking:
+
+| Participant | Token | Received the knock |
+|---|---|---|
+| Doctor | `allow_join`, `allow_mod` | yes |
+| Patient who returned | `allow_join` | yes |
+| Patient on their first entry | `ask_join` (admitted) | no |
+
+So a returning patient's client gets the same knock and the same `allow`/`deny` closures as the
+doctor. The patient UI ignores the event and the doctor's card stays the only admit button on screen,
+but an admitted patient with devtools could admit a stranger. Classroom's "only `allow_mod` receives
+it" was a teacher holding both permissions, not evidence about `allow_mod` alone. The gap is accepted:
+it only opens for someone the doctor already let in, and only after they returned.
 
 ## Recording needs the patient's consent at the moment it starts
 
@@ -94,11 +104,18 @@ never receives knocks and the gap may close. Measure it before writing the rejoi
 holds a meeting token and could call `startRecording` without asking. The doctor is the trusted
 party in this app, and the consent row is the audit trail.
 
-**Unverified:**
+Measured 2026-11-19:
 
-- Whether a patient can call `stopRecording` without `allow_mod`.
-- Which composite layout fits a 1:1 visit best. Classroom used SPOTLIGHT because a board was on
-  screen, and GRID is the likely choice here. Keep the positional `startRecording` arguments either way.
+- **Either side can stop.** A patient admitted with `ask_join`, and one returning with `allow_join`,
+  each called `stopRecording()` with no `allow_mod`. Neither call threw, no `onError` fired, and the
+  doctor's client saw `RECORDING_STOPPING` then `RECORDING_STOPPED`. The patient's Stop is a direct
+  call, not a request to the doctor. The same token could also start a recording, which is the
+  patient consenting on their own behalf.
+- **The composite is `GRID`, `LIGHT`.** Both layouts rendered at 1920x1080. `GRID` puts the patient
+  and the doctor side by side on a light surround. `SPOTLIGHT` filled the frame with one person and
+  dropped the doctor entirely, which is the wrong record of a consult. The call stays positional,
+  `startRecording(null, null, { layout: { type: 'GRID', priority: 'SPEAKER', gridSize: 4 },
+  theme: 'LIGHT', ... })`. The typings require `gridSize`.
 
 ## Recordings are stored by VideoSDK and listed by visit owner
 
@@ -125,6 +142,36 @@ it: a patient can knock early or late. There is no calendar, booking or reminder
 
 Clinic keeps VideoSDK's single lavender accent and Inter, but uses the light, calm surface patients
 expect from a medical app. It does not use the design system's dark default.
+
+## What the SDK measured before the features were built
+
+Probed 2026-11-19 on react-sdk 1.3.0, Chrome with fake devices, local `vercel dev`. These are facts
+the pre-call check, the network indicator and the reconnect state are built on.
+
+**`runPreCallTest` works before joining, with the patient's `ask_join` token.** No meeting is joined
+and no knock is sent. `samplingDuration` has a floor of 10000ms; at that floor the whole test took
+11.0s and `onStatsChange` fired 18 times. The result:
+
+- `camera`: `status`, `track`, `captureResolution` ("1280x720"), `fps`, `codec`
+- `microphone`: `status`, `track`, `codec`
+- `networkQuality.uplink` and `.downlink`: `quality` from 1 (bad) to 5 (excellent), `factors` (empty
+  when nothing is wrong), plus `audio` and `video` blocks with `rtt`, `bitrate`, `packetLoss`,
+  `jitter` and, for video, `fps` and `resolution`
+
+**Per-participant network stats have no score.** `participant.getVideoStats()` and
+`getAudioStats()` resolve to an array of one entry with `rtt`, `jitter`, `packetsLost`,
+`totalPackets`, `bitrate` and `network` ("WIFI"), for a remote participant and for yourself. The
+local entry adds `limitation.reason` (`none`, `cpu`, `bandwidth`). Any quality bars on a tile are
+the app's own reading of those numbers.
+
+**Reconnection is the SDK's, and it held for 40 seconds offline.** Taking a patient's browser
+offline:
+
+- For 8s: `RECONNECTING` at +5.0s, `CONNECTED` at +10.3s, 2.3s after the network came back.
+- For 40s: `RECONNECTING` re-emitted roughly every 5s, `CONNECTED` 3.2s after the network came back.
+  No `FAILED`, and the doctor never lost the patient's tile.
+
+The app needs no reconnect logic of its own beyond showing the state.
 
 ## Ported from Classroom
 
