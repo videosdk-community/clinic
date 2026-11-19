@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "pnpm build",
+  "devCommand": "pnpm exec vite --port $PORT",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/((?!api/|@|src/|node_modules/).*)", "destination": "/index.html" }
+  ]
+}
