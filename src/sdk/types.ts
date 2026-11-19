@@ -34,6 +34,11 @@ export type RoomStatus =
    arrives on. */
 export type TrackKind = 'mic' | 'cam' | 'screen'
 
+/* The app's own reading of one participant's raw RTP stats. The SDK has no
+   score; see ParticipantBridge for the thresholds. 'unknown' means no media
+   is flowing to measure, and the tile shows nothing for it. */
+export type NetworkQuality = 'good' | 'fair' | 'poor' | 'unknown'
+
 export interface ParticipantView {
   id: string
   name: string
@@ -41,6 +46,7 @@ export interface ParticipantView {
   micOn: boolean
   camOn: boolean
   isActiveSpeaker: boolean
+  network: NetworkQuality
 }
 
 /** What the lobby shows. The allow/deny closures are NOT here - see store.ts. */

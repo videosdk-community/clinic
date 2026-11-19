@@ -222,6 +222,7 @@ export function createRoomStore(doctorId: string | null = null) {
         micOn: false,
         camOn: false,
         isActiveSpeaker: false,
+        network: 'unknown',
       }
       const next: ParticipantView = { ...base, ...patch, id }
       if (prev && shallowEqual(next, prev)) return

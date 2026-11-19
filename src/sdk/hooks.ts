@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useRef, useSyncExternalStore } from 'react'
 import type { RoomStore } from './store'
-import type { ParticipantView, RoomMessage, RoomSnapshot, TrackKind } from './types'
+import type { NetworkQuality, ParticipantView, RoomMessage, RoomSnapshot, TrackKind } from './types'
 
 export const RoomStoreContext = createContext<RoomStore | null>(null)
 
@@ -88,6 +88,17 @@ export const useLeaveReason = () => useSelector(selLeaveReason)
 export function useParticipantView(id: string): ParticipantView | undefined {
   const store = useRoomStore()
   const get = useCallback(() => store.getSnapshot().participants[id], [store, id])
+  return useSyncExternalStore(store.subscribe, get, get)
+}
+
+/** One participant's connection reading. Changes only when the smoothed
+    level changes, never on every poll. */
+export function useNetworkQuality(id: string): NetworkQuality {
+  const store = useRoomStore()
+  const get = useCallback(
+    () => store.getSnapshot().participants[id]?.network ?? 'unknown',
+    [store, id],
+  )
   return useSyncExternalStore(store.subscribe, get, get)
 }
 

@@ -17,6 +17,7 @@ export {
   useDoctorId,
   useParticipantIds,
   useParticipantView,
+  useNetworkQuality,
   usePresenterId,
   useIsRecording,
   useEntryQueue,
@@ -33,7 +34,7 @@ export {
    than against bare numbers, so the meaning of 1011 lives in one place. */
 export { LEAVE_ROOM_CLOSE, LEAVE_MEETING_END_API, LEAVE_DUPLICATE_PARTICIPANT } from './types'
 
-export type { EntryRequest, MediaRequest } from './types'
+export type { EntryRequest, MediaRequest, NetworkQuality } from './types'
 
 export { usePrecall } from './media/usePrecall'
 export type { PrecallTracks } from './media/usePrecall'

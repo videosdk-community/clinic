@@ -153,6 +153,35 @@ it: a patient can knock early or late. There is no calendar, booking or reminder
 Clinic keeps VideoSDK's single lavender accent and Inter, but uses the light, calm surface patients
 expect from a medical app. It does not use the design system's dark default.
 
+## The network indicator is the app's reading of raw stats
+
+The SDK has no quality score (see "Per-participant network stats have no score" below), so each
+tile's three bars are graded in `ParticipantBridge` from one participant's stats:
+
+- **Source.** `getVideoStats()` while the camera is on, `getAudioStats()` while only the mic is on.
+  Neither on is `unknown` and the bars are hidden.
+- **Poll.** Every 4 seconds, as a `setTimeout` chain so one slow call never overlaps the next.
+  No SDK event replaces it: `onQualityLimitation` covers only your own sender, and
+  `onVideoQualityChanged` reports which simulcast layer is being consumed.
+- **Counters are per interval.** `packetsLost` and `totalPackets` are the js-sdk's
+  `delta_packets_lost_*` / `delta_packets_*`. Measured: `totalPackets` stayed at 80-90 per reading
+  while `packetsReceived` / `packetsSent` (the running totals) climbed past 6000. Loss is
+  `packetsLost / totalPackets` with no differencing. `packetsLost` was seen at -4 and is clamped to 0.
+- **Thresholds.** Good is rtt < 150ms and loss < 2%. Poor is rtt > 400ms, loss > 8% or
+  jitter > 100ms. Anything else is fair. Jitter never gates good: inbound video jitter measured
+  15-50ms on a clean path.
+- **A stall is poor.** An interval with zero packets on media that is on means the stream froze,
+  and the remote entry reported exactly that under a lossy link.
+- **Your own tile.** When your video entry says `limitation.reason: 'bandwidth'`, it shows at most
+  fair, because the encoder has already dropped quality.
+- **Smoothing.** The level changes only when two consecutive readings agree, so one spike does not
+  flicker the bars. An unchanged level is a no-op write and re-renders nothing.
+
+What it measures on a remote tile is the path from the SFU to you, not the other person's own
+uplink. Their uplink loss is mostly repaired by retransmission before it reaches you. Chrome
+DevTools network throttling does not touch WebRTC media; a libwebrtc fake-network field trial
+(500ms delay, 15% loss) moved real tiles to fair and poor.
+
 ## What the SDK measured before the features were built
 
 Probed 2026-11-19 on react-sdk 1.3.0, Chrome with fake devices, local `vercel dev`. These are facts
