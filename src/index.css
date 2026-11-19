@@ -70,6 +70,12 @@
   /* the primary fill's hover step, and ink for text sitting on accent-tint */
   --color-accent-soft: var(--primary-100);
   --color-accent-ink: var(--primary-900);
+  /* Redesign steps: the page wash behind headers, hairlines on that wash,
+     and the mid lavender that fills data marks (pain bar, steps, meters). */
+  --color-accent-wash: var(--primary-50);
+  --color-accent-line: var(--primary-300);
+  --color-accent-mid: var(--primary-500);
+  --color-accent-strong: var(--primary-700);
   --color-accent-ring: var(--focus-ring);
 
   /* status only - never decoration */
