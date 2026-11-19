@@ -20,6 +20,8 @@ const OUT = 'drive-out'
 const DOCTOR_EMAIL = 'drive-doctor@clinic.test'
 const DOCTOR_NAME = 'Asha Rao'
 const PATIENT_NAME = 'Jordan Lee'
+const REASON = 'Itchy rash on my left forearm'
+const REASON_EDITED = 'Itchy rash on my left forearm, now spreading'
 
 const env = {}
 for (const line of readFileSync('.env', 'utf8').split('\n')) {
@@ -46,14 +48,13 @@ async function doctorSession() {
     email_confirm: true,
     user_metadata: { display_name: DOCTOR_NAME },
   })
-  if (!created?.user) {
-    /* Already exists: make sure the name is what the admit card expects. */
-    const { data } = await admin.auth.admin.listUsers()
-    const u = data.users.find((x) => x.email === DOCTOR_EMAIL)
-    await admin.auth.admin.updateUserById(u.id, { user_metadata: { display_name: DOCTOR_NAME } })
-  }
   const { data, error } = await admin.auth.admin.generateLink({ type: 'magiclink', email: DOCTOR_EMAIL })
   if (error) throw error
+  if (!created?.user) {
+    /* Already exists: make sure the name is what the admit card expects. The
+       id comes from the link, since listUsers pages and guests pile up. */
+    await admin.auth.admin.updateUserById(data.user.id, { user_metadata: { display_name: DOCTOR_NAME } })
+  }
   const { data: redeemed, error: e2 } = await pub.auth.verifyOtp({
     type: 'magiclink',
     token_hash: data.properties.hashed_token,
@@ -68,7 +69,7 @@ const browser = await chromium.launch({
   channel: 'chrome',
   headless: process.env.HEADED ? false : true,
   args: [
-    '--use-fake-device-for-media-stream',
+    '--use-fake-device-for-media-stream=device-count=2',
     '--use-fake-ui-for-media-stream',
     '--auto-select-desktop-capture-source=Entire screen',
     '--auto-accept-this-tab-capture',
@@ -89,6 +90,7 @@ async function party(name, session) {
   }
   const page = await ctx.newPage()
   page.on('console', (m) => {
+    if (process.env.DEBUG && m.type() !== 'error') return void console.log(`  [${name} ${m.type()}] ${m.text()}`)
     if (m.type() === 'error' && !/ERR_INTERNET_DISCONNECTED|Failed to fetch|WebSocket connection/.test(m.text())) console.log(`  [${name} console] ${m.text()}`)
   })
   page.on('pageerror', (e) => console.log(`  [${name} pageerror] ${e.message}`))
@@ -145,6 +147,15 @@ try {
   await assertFakeDevices(patient, 'patient')
   await patient.getByLabel('Your name').fill(PATIENT_NAME)
   await patient.getByRole('button', { name: 'Continue' }).click()
+
+  /* Step 1: the intake, saved before the knock. */
+  await patient.getByLabel('Reason for visit').fill(REASON)
+  await patient.locator('label', { has: patient.getByRole('radio', { name: 'A few days ago', exact: true }) }).click()
+  await patient.locator('label', { has: patient.getByRole('radio', { name: '3', exact: true }) }).click()
+  await patient.getByRole('button', { name: 'Continue' }).click()
+  await patient.getByText('Check your camera and mic').waitFor({ timeout: 15_000 })
+  log('patient sent the intake')
+
   await patient.getByText(DOCTOR_NAME).first().waitFor({ timeout: 15_000 })
   log('patient precall greets with doctor name')
   await shot(patient, '02-patient-precall')
@@ -158,6 +169,15 @@ try {
 
   await doctor.getByText(`Expected: ${PATIENT_NAME}`).waitFor({ timeout: 20_000 })
   log('doctor sees knock card with expected name')
+  await doctor.getByText(REASON).first().waitFor({ timeout: 15_000 })
+  log('knock card shows the intake')
+
+  /* The patient changes their answer from the waiting room; the card follows. */
+  await patient.getByRole('button', { name: /^Edit what you told/ }).click()
+  await patient.getByLabel('Reason for visit').fill(REASON_EDITED)
+  await patient.getByRole('button', { name: 'Save' }).click()
+  await doctor.getByText(REASON_EDITED).first().waitFor({ timeout: 12_000 })
+  log('lobby edit reached the knock card')
   await shot(doctor, '03-doctor-knock')
   await doctor.getByRole('button', { name: 'Admit' }).click()
   log('doctor admitted')
@@ -170,7 +190,7 @@ try {
   /* Chat both ways. */
   const openChat = async (page) => {
     const box = page.getByPlaceholder('Send a message')
-    if (!(await box.isVisible())) await page.getByRole('button', { name: 'Chat' }).first().click()
+    if (!(await box.isVisible())) await page.getByRole('tab', { name: /^Chat/ }).or(page.getByRole('button', { name: 'Chat' })).first().click()
     return box
   }
   await openChat(patient)
@@ -197,6 +217,51 @@ try {
   await patient.getByRole('button', { name: 'Stop sharing your screen' }).click()
   await doctor.getByText(`${PATIENT_NAME} is sharing a screen`).waitFor({ state: 'hidden', timeout: 15_000 })
   log('share stopped')
+
+  /* In-call device switching: the doctor picks the other camera and mic. */
+  const pickOther = async (chevron, menuName) => {
+    await doctor.getByRole('button', { name: chevron }).click()
+    const menu = doctor.getByRole('menu', { name: menuName })
+    const other = menu.getByRole('menuitemradio', { checked: false }).first()
+    const label = (await other.textContent())?.trim()
+    await other.click()
+    await menu.waitFor({ state: 'hidden', timeout: 5_000 })
+    await doctor.getByRole('button', { name: chevron }).click()
+    if (process.env.DEBUG) {
+      await doctor.waitForTimeout(1500)
+      console.log('  menu after switch:', await menu.locator('[role=menuitemradio]').evaluateAll((els) => els.map((e) => `${e.textContent?.trim()}=${e.getAttribute('aria-checked')}`)))
+      console.log('  self tracks:', await doctor.evaluate(() => [...document.querySelectorAll('video')].map((v) => v.srcObject?.getVideoTracks()[0]?.label)))
+    }
+    await menu.getByRole('menuitemradio', { name: label, checked: true }).waitFor({ timeout: 10_000 })
+    await doctor.keyboard.press('Escape')
+    return label
+  }
+  log(`doctor switched camera to ${await pickOther('Camera settings', 'Camera')}`)
+  await waitRemoteVideo(patient, 'patient after doctor camera switch')
+  log(`doctor switched mic to ${await pickOther('Microphone settings', 'Microphone')}`)
+
+  /* Show me: decline first, then accept. Fake cameras have no back camera, so
+     the patient shows it on the camera they have. */
+  const showMe = async () => {
+    await doctor.getByRole('button', { name: 'Show me' }).click()
+    const ask = patient.getByRole('dialog').filter({ hasText: 'wants a closer look' })
+    await ask.waitFor({ timeout: 10_000 })
+    return ask
+  }
+  let ask = await showMe()
+  await ask.getByRole('button', { name: 'Not now' }).click()
+  await doctor.getByText(`${PATIENT_NAME} did not switch cameras`).waitFor({ timeout: 10_000 })
+  log('Show me decline reached the doctor')
+  ask = await showMe()
+  await shot(patient, '08c-patient-show-me')
+  await ask.getByRole('button', { name: 'Show it on my camera' }).click()
+  await doctor.getByText(/Close look ·/).waitFor({ timeout: 10_000 })
+  log('doctor is in close look')
+  await shot(doctor, '08d-doctor-close-look')
+  await doctor.getByRole('button', { name: 'Done' }).click()
+  await doctor.getByText(/Close look ·/).waitFor({ state: 'hidden', timeout: 10_000 })
+  await waitRemoteVideo(doctor, 'doctor after close look')
+  log('close look ended')
 
   /* Recording, with consent. Decline first, then allow, then the patient stops it. */
   const askToRecord = async () => {
@@ -243,8 +308,19 @@ try {
   await stranger.goto(`/v/${visit.roomId}`)
   await stranger.getByLabel('Your name').fill('Stranger')
   await stranger.getByRole('button', { name: 'Continue' }).click()
+  /* Someone is already admitted, so the server refuses a stranger's intake. */
+  await stranger.getByLabel('Reason for visit').fill('Not the patient')
+  await stranger.getByRole('button', { name: 'Continue' }).click()
+  await stranger.getByText(/already let someone else in/).waitFor({ timeout: 15_000 })
+  log('stranger intake refused')
+  await stranger.getByRole('button', { name: 'Skip for now' }).click()
   await stranger.getByRole('button', { name: /ask to join/i }).click({ timeout: 20_000 })
   await doctor.getByText('Stranger').first().waitFor({ timeout: 20_000 })
+  /* The rail still shows the patient's intake; the stranger's card must not. */
+  const card = doctor.getByRole('region', { name: 'Waiting to join' })
+  await card.getByText('No intake sent.').waitFor({ timeout: 10_000 })
+  if (await card.getByText(REASON_EDITED).count()) throw new Error("stranger's card shows the patient's intake")
+  log("stranger's card shows no intake")
   await doctor.getByRole('button', { name: 'Deny' }).click()
   await stranger.getByText('The doctor did not let you in').waitFor({ timeout: 15_000 })
   log('second knock denied, stranger told')
@@ -269,6 +345,8 @@ try {
   await doctor.goto(`/visits/${visit.roomId}`)
   await doctor.getByText(/Given by the patient/).waitFor({ timeout: 15_000 })
   log('details page shows the consent')
+  await doctor.getByText(REASON_EDITED).waitFor({ timeout: 15_000 })
+  log('details page shows the intake')
   if (process.env.WAIT_RECORDING) {
     for (let i = 0; i < 30; i++) {
       await doctor.reload()
