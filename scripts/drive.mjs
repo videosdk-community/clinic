@@ -59,6 +59,8 @@ async function doctorSession() {
     token_hash: data.properties.hashed_token,
   })
   if (e2) throw e2
+  /* Each run creates a visit; clear the earlier ones so the dashboard shows this run's. */
+  await admin.from('visits').delete().eq('owner_id', redeemed.user.id)
   return redeemed.session
 }
 
