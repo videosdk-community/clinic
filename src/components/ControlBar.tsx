@@ -6,7 +6,8 @@ import { useDeviceClass } from '../lib/useDeviceClass'
 
 /* The control bar: mic, camera, screen share, chat, leave. The doctor also
    gets Record, and their exit says "End visit" because it closes the room for
-   both people. Phone gets its own bar, below, with the same props. */
+   both people. While a recording runs, the patient gets Stop too: either side
+   can stop it. Phone gets its own bar, below, with the same props. */
 
 export interface ControlBarProps {
   /** Who the visit is with, shown at the left edge on tablet and desktop. */
@@ -30,12 +31,20 @@ export interface ControlBarProps {
 
   isDoctor: boolean
   isRecording: boolean
+  /** The doctor asked the patient and is waiting for the answer. */
+  recordingPending: boolean
   onToggleRecording: () => void
 
   chatOpen: boolean
   onToggleChat: () => void
 
   onLeave: () => void
+}
+
+function recordLabel({ isRecording, recordingPending }: Pick<ControlBarProps, 'isRecording' | 'recordingPending'>) {
+  if (isRecording) return 'Stop recording'
+  if (recordingPending) return 'Waiting for consent'
+  return 'Start recording'
 }
 
 function shareLabel({
@@ -68,6 +77,7 @@ function DesktopControlBar(props: ControlBarProps) {
     onToggleShare,
     isDoctor,
     isRecording,
+    recordingPending,
     onToggleRecording,
     chatOpen,
     onToggleChat,
@@ -100,12 +110,14 @@ function DesktopControlBar(props: ControlBarProps) {
         </CtrlBtn>
         {/* Red while recording, matching the pill both sides see. The state
             comes from the SDK's own recording event, so the control is already
-            lit during RECORDING_STARTING and cannot be double-fired. */}
-        {isDoctor && (
+            lit during RECORDING_STARTING and cannot be double-fired. Off while
+            the patient is being asked; Cancel is on the waiting banner. */}
+        {(isDoctor || isRecording) && (
           <CtrlBtn
-            label={isRecording ? 'Stop recording' : 'Start recording'}
-            text={isRecording ? 'Stop' : 'Record'}
+            label={recordLabel(props)}
+            text={isRecording ? 'Stop' : recordingPending ? 'Asking...' : 'Record'}
             danger={isRecording}
+            disabled={recordingPending && !isRecording}
             onClick={onToggleRecording}
           >
             <RoomIcon name="record" size={18} />
@@ -184,6 +196,7 @@ function PhoneControlBar(props: ControlBarProps) {
     onToggleShare,
     isDoctor,
     isRecording,
+    recordingPending,
     onToggleRecording,
     chatOpen,
     onToggleChat,
@@ -223,11 +236,12 @@ function PhoneControlBar(props: ControlBarProps) {
           disabled={!sharingScreen && (!shareSupported || shareTakenBy !== null)}
           onClick={run(onToggleShare)}
         />
-        {isDoctor && (
+        {(isDoctor || isRecording) && (
           <SheetRow
             icon="record"
-            label={isRecording ? 'Stop recording' : 'Start recording'}
+            label={recordLabel(props)}
             active={isRecording}
+            disabled={recordingPending && !isRecording}
             onClick={run(onToggleRecording)}
           />
         )}

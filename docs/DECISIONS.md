@@ -94,11 +94,21 @@ it only opens for someone the doctor already let in, and only after they returne
 
 ## Recording needs the patient's consent at the moment it starts
 
-1. The doctor clicks Record. Clinic sends a PubSub request.
-2. The patient sees "Dr. X wants to record this visit. Allow / Decline".
-3. Allow starts the recording. Decline tells the doctor and nothing is recorded.
-4. While it runs, both sides see a red Recording pill, and either side can stop it.
-5. Consent is written to the visit row: who consented and when.
+1. The doctor clicks Record. Clinic publishes `request` on the unpersisted `CONSENT` topic, with
+   payload `{ id, to }`: a fresh request id and the patient's participantId. The doctor sees "Waiting
+   for {patient} to allow recording" and can Cancel, which publishes `cancel { id }`.
+2. The patient sees a modal, "Dr. X wants to record this visit. Allow / Decline". Escape is Decline.
+3. Allow calls `POST /api/consent { roomId }` first. The patient writes consent from their own
+   session, so the row's `recording_consent_by` and `recording_consent_at` come from the consenting
+   party. Only after that succeeds does the patient publish `allow { id }`. A failed write publishes
+   nothing and the dialog stays open.
+4. Decline publishes `decline { id }`. The doctor gets "{patient} declined recording" and nothing
+   is recorded.
+5. The doctor's client is the only one that calls `startRecording`, and only on an `allow` whose id
+   is its current request and whose sender is the participant the request went to. Old answers,
+   other senders, and anything in the store before this participant joined are ignored.
+6. While it runs, both sides see a red Recording pill with Stop on it, and either side can stop it
+   directly. A patient who joins mid-recording sees the pill from the SDK's recording state.
 
 **Consent is a contract between the two UIs, not something the SDK enforces.** The doctor's client
 holds a meeting token and could call `startRecording` without asking. The doctor is the trusted

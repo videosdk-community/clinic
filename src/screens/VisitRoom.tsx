@@ -6,10 +6,10 @@ import { KnockCard } from '../components/KnockCard'
 import { LeavePrompt } from '../components/LeavePrompt'
 import { LiveTile } from '../components/LiveTile'
 import { MediaRequestPrompt } from '../components/MediaRequestPrompt'
-import { RoomIcon } from '../components/icons'
+import { RecordingConsentPrompt } from '../components/RecordingConsentPrompt'
 import { ScreenStage } from '../components/ScreenStage'
 import { SidePanel } from '../components/SidePanel'
-import { BottomSheet, useToast } from '../design/ui'
+import { BottomSheet, Button, Spinner, useToast } from '../design/ui'
 import { admitPatient, endVisit } from '../lib/visits'
 import { useDeviceClass } from '../lib/useDeviceClass'
 import { useElapsedSeconds } from '../lib/useElapsedSeconds'
@@ -29,6 +29,7 @@ import {
   useTopic,
 } from '../sdk'
 import type { VisitSession } from '../session/types'
+import { useRecordingConsent } from './useRecordingConsent'
 
 /* The visit: two people, one stage.
 
@@ -95,6 +96,9 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
   const main = useParticipantView(mainId ?? '')
   const presenter = useParticipantView(presenterId ?? '')
   const otherName = isDoctor ? session.patientName : `Dr. ${session.doctorName}`
+
+  /* The doctor asks whoever is on the stage, never themselves. */
+  const consent = useRecordingConsent(roomId, isDoctor, isDoctor ? mainId : null, session.patientName)
 
   /* The doctor's exit ends the visit for both people: end(), never leave()
      after it - the room is already closing, and leave() on a closing room
@@ -205,15 +209,41 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
                 </div>
               )}
 
-              {(recording || reconnecting) && (
-                <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center gap-2">
+              {/* Red and solid on both sides, with Stop on the pill itself: on a
+                  phone the control bar's Stop is one sheet away, and either
+                  person stopping is a direct call, not a request. A patient
+                  who joins mid-recording sees it from the SDK's state. */}
+              {(recording || reconnecting || consent.pending) && (
+                <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex flex-wrap justify-center gap-2 px-3">
                   {recording && (
                     <span
-                      className="flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-xs font-semibold uppercase tracking-wide"
-                      style={{ background: 'var(--danger-bg)', color: 'var(--danger-fg)' }}
+                      role="status"
+                      className="pointer-events-auto flex h-8 items-center gap-2 rounded-pill bg-danger-solid pl-3 pr-1 text-sm font-semibold text-white"
+                      style={{ boxShadow: 'var(--elevation-popover)' }}
                     >
-                      <RoomIcon name="record" size={11} />
+                      <span aria-hidden className="h-2 w-2 animate-pulse rounded-pill bg-white" />
                       Recording
+                      <button
+                        type="button"
+                        aria-label="Stop recording"
+                        onClick={actions.stopRecording}
+                        className="h-6 cursor-pointer rounded-pill border-0 bg-white/20 px-2.5 text-sm font-semibold text-white hover:bg-white/30"
+                      >
+                        Stop
+                      </button>
+                    </span>
+                  )}
+                  {consent.pending && !recording && (
+                    <span
+                      role="status"
+                      className="pointer-events-auto flex min-h-8 max-w-full items-center gap-2 rounded-pill border border-line-strong bg-card py-1 pl-3 pr-1 text-sm text-ink-secondary"
+                      style={{ boxShadow: 'var(--elevation-popover)' }}
+                    >
+                      <Spinner size={14} />
+                      <span className="min-w-0">Waiting for {session.patientName} to allow recording</span>
+                      <Button size="sm" variant="secondary" onClick={consent.cancel}>
+                        Cancel
+                      </Button>
                     </span>
                   )}
                   {reconnecting && (
@@ -251,6 +281,15 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
             <LeavePrompt isDoctor={isDoctor} onStay={() => setConfirmLeave(false)} onLeave={exit} />
           )}
 
+          {consent.asking && (
+            <RecordingConsentPrompt
+              doctorName={session.doctorName}
+              busy={consent.busy}
+              onAllow={consent.allow}
+              onDecline={consent.decline}
+            />
+          )}
+
           {mediaRequest && (
             <MediaRequestPrompt
               request={mediaRequest}
@@ -274,10 +313,11 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
             onToggleShare={() => void actions.toggleScreenShare()}
             isDoctor={isDoctor}
             isRecording={recording}
-            onToggleRecording={() => {
-              if (recording) actions.stopRecording()
-              else actions.startRecording()
-            }}
+            recordingPending={consent.pending}
+            /* Stop is direct for either side. Start is only ever a request:
+               the recording begins on the patient's allow, see
+               useRecordingConsent. */
+            onToggleRecording={recording ? actions.stopRecording : consent.request}
             chatOpen={chatOpen}
             onToggleChat={() => setChatOpen(!chatOpen)}
             onLeave={exit}

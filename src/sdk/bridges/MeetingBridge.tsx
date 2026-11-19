@@ -25,12 +25,14 @@ const STATUS: Record<string, RoomStatus> = {
   DISCONNECTED: 'disconnected',
 }
 
-/* How the cloud composites the visit. Carried over unchanged; which layout
-   fits a 1:1 consult best (GRID is the likely answer) is still to be
-   measured, see DECISIONS.md. Nothing here configures the composite's size. */
+/* How the cloud composites the visit. Measured, see DECISIONS.md: GRID puts
+   the patient and the doctor side by side, SPOTLIGHT filled the frame with one
+   person and dropped the doctor entirely. LIGHT matches the clinic theme.
+   gridSize is required by the typings. Nothing here configures the
+   composite's size; both layouts rendered at 1920x1080. */
 const RECORDING_CONFIG = {
-  layout: { type: 'SPOTLIGHT', priority: 'PIN' },
-  theme: 'DARK',
+  layout: { type: 'GRID', priority: 'SPEAKER', gridSize: 4 },
+  theme: 'LIGHT',
   mode: 'video-and-audio',
   quality: 'high',
   orientation: 'landscape',

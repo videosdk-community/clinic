@@ -89,6 +89,13 @@ export async function admitPatient(roomId: string, participantId: string): Promi
   await apiPost<{ ok: true }>('/api/admit', { roomId, participantId })
 }
 
+/** The patient's consent to recording, written from their own session.
+    The server answers 403 not_admitted and 409 visit_ended. */
+export async function giveRecordingConsent(roomId: string): Promise<string> {
+  const { consentAt } = await apiPost<{ consentAt: string }>('/api/consent', { roomId })
+  return consentAt
+}
+
 /** The link the doctor sends. Same shape everywhere, so it is built once. */
 export function visitLink(roomId: string): string {
   return `${window.location.origin}/v/${roomId}`
