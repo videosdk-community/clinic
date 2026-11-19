@@ -21,10 +21,32 @@ export interface Visit {
   endedAt: string | null
   recordingConsentBy: string | null
   recordingConsentAt: string | null
+  intake: Intake | null
+  /** Who sent the intake: the patient's participant id. Matches an EntryRequest's participantId. */
+  intakeBy: string | null
+  intakeAt: string | null
+}
+
+/** When the patient's problem started. The database checks the same four values. */
+export type IntakeSince = 'today' | 'days' | 'week' | 'longer'
+
+export const SINCE_LABEL: Record<IntakeSince, string> = {
+  today: 'Today',
+  days: 'A few days ago',
+  week: 'About a week ago',
+  longer: 'Longer',
+}
+
+/** The pre-visit intake the patient fills before knocking. */
+export interface Intake {
+  reason: string
+  symptoms: string | null
+  since: IntakeSince | null
+  pain: number | null
 }
 
 const COLUMNS =
-  'id, room_id, patient_name, doctor_name, scheduled_at, created_at, ended_at, recording_consent_by, recording_consent_at'
+  'id, room_id, patient_name, doctor_name, scheduled_at, created_at, ended_at, recording_consent_by, recording_consent_at, intake_reason, intake_symptoms, intake_since, intake_pain, intake_by, intake_at'
 
 function toVisit(r: Record<string, unknown>): Visit {
   return {
@@ -37,14 +59,32 @@ function toVisit(r: Record<string, unknown>): Visit {
     endedAt: r.ended_at as string | null,
     recordingConsentBy: r.recording_consent_by as string | null,
     recordingConsentAt: r.recording_consent_at as string | null,
+    intake: r.intake_reason
+      ? {
+          reason: r.intake_reason as string,
+          symptoms: r.intake_symptoms as string | null,
+          since: r.intake_since as IntakeSince | null,
+          pain: r.intake_pain as number | null,
+        }
+      : null,
+    intakeBy: r.intake_by as string | null,
+    intakeAt: r.intake_at as string | null,
   }
 }
 
 export async function createVisit(patientName: string, scheduledAt: string): Promise<Visit> {
   const { visit } = await apiPost<{
-    visit: Omit<Visit, 'endedAt' | 'recordingConsentBy' | 'recordingConsentAt'>
+    visit: Pick<Visit, 'id' | 'roomId' | 'patientName' | 'doctorName' | 'scheduledAt' | 'createdAt'>
   }>('/api/visits', { patientName, scheduledAt })
-  return { ...visit, endedAt: null, recordingConsentBy: null, recordingConsentAt: null }
+  return {
+    ...visit,
+    endedAt: null,
+    recordingConsentBy: null,
+    recordingConsentAt: null,
+    intake: null,
+    intakeBy: null,
+    intakeAt: null,
+  }
 }
 
 export async function listMyVisits(): Promise<Visit[]> {
@@ -107,6 +147,14 @@ export async function wasAdmitted(roomId: string, participantId: string): Promis
 export async function giveRecordingConsent(roomId: string): Promise<string> {
   const { consentAt } = await apiPost<{ consentAt: string }>('/api/consent', { roomId })
   return consentAt
+}
+
+/** The patient's intake, written from their own session before or while knocking.
+    The server answers 403 when the doctor calls it or once someone else was admitted,
+    and 409 visit_ended. Sending it again replaces it. */
+export async function submitIntake(roomId: string, intake: Intake): Promise<string> {
+  const { intakeAt } = await apiPost<{ intakeAt: string }>('/api/intake', { roomId, ...intake })
+  return intakeAt
 }
 
 /** The link the doctor sends. Same shape everywhere, so it is built once. */

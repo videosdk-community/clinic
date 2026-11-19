@@ -92,6 +92,37 @@ but an admitted patient with devtools could admit a stranger. Classroom's "only 
 it" was a teacher holding both permissions, not evidence about `allow_mod` alone. The gap is accepted:
 it only opens for someone the doctor already let in, and only after they returned.
 
+## The patient sends an intake before knocking
+
+Step 1 of the patient's flow, before the device check: reason for visit (required, up to 200
+characters), symptoms (optional, up to 1000), when it started (`today`, `days`, `week`, `longer`)
+and pain from 0 to 10. It can be skipped. It is shown once per page load, never again on an
+ask-again or a reconnect, and an admitted patient coming back never sees it.
+
+- **Written by `POST /api/intake` from the patient's own session**, like consent, so the patient
+  still needs no policy on `visits`. The columns live on the visit row (`intake_reason`,
+  `intake_symptoms`, `intake_since`, `intake_pain`, `intake_by`, `intake_at`), and the database
+  checks every limit, plus that an intake is a reason with optional detail or nothing at all.
+- **Anyone with the link may write it before someone is admitted**, because the patient is not
+  admitted when they fill it. `intake_by` records who did. Once the doctor admits anyone, only an
+  admitted participant may change it, so a later stranger cannot overwrite the patient's words. The
+  doctor never writes it (403).
+- **The admit card shows an intake only when `intake_by` is the person knocking.** A stranger who
+  wrote one before the patient arrived can only ever put it on their own card.
+- **Editable from the waiting room.** The patient keeps their answers in client state, since they
+  cannot read `visits`, and a save replaces the whole intake. The doctor's room re-reads the visit
+  every 5s while a knock is pending, so an edit reaches the admit card without a refresh.
+- **The doctor sees it three times:** on the admit card, in the room's Patient tab, and on the visit
+  details page afterwards.
+
+Measured 2026-11-19 with `scripts/drive.mjs`: the intake reaches the admit card, a lobby edit
+reaches it within one 5s re-read, a stranger's intake is refused with 403 once the patient is
+admitted, the stranger's card shows "No intake sent.", and the details page shows the edited intake.
+
+**This is patient health information at rest in Supabase.** Every other piece of PHI in Clinic
+(video, audio, chat, recordings) stays with VideoSDK. A HIPAA-ready deployment therefore needs
+Supabase under its own BAA as well as VideoSDK's, and the blog must say so.
+
 ## Recording needs the patient's consent at the moment it starts
 
 1. The doctor clicks Record. Clinic publishes `request` on the unpersisted `CONSENT` topic, with
