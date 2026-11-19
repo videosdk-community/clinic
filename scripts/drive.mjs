@@ -65,7 +65,12 @@ async function doctorSession() {
 const browser = await chromium.launch({
   channel: 'chrome',
   headless: process.env.HEADED ? false : true,
-  args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+  args: [
+    '--use-fake-device-for-media-stream',
+    '--use-fake-ui-for-media-stream',
+    '--auto-select-desktop-capture-source=Entire screen',
+    '--auto-accept-this-tab-capture',
+  ],
 })
 
 async function party(name, session) {
@@ -82,7 +87,7 @@ async function party(name, session) {
   }
   const page = await ctx.newPage()
   page.on('console', (m) => {
-    if (m.type() === 'error') console.log(`  [${name} console] ${m.text()}`)
+    if (m.type() === 'error' && !/ERR_INTERNET_DISCONNECTED|Failed to fetch|WebSocket connection/.test(m.text())) console.log(`  [${name} console] ${m.text()}`)
   })
   page.on('pageerror', (e) => console.log(`  [${name} pageerror] ${e.message}`))
   return page
@@ -182,7 +187,98 @@ try {
   await shot(doctor, '06-doctor-chat')
   await shot(patient, '07-patient-chat')
 
-  log('CHECKPOINT PASSED')
+  /* Screen share from the patient (showing a lab result is the brief's case). */
+  await patient.getByRole('button', { name: 'Share your screen' }).click()
+  await doctor.getByText(`${PATIENT_NAME} is sharing a screen`).waitFor({ timeout: 15_000 })
+  log('doctor sees the patient sharing')
+  await shot(doctor, '08-doctor-share')
+  await patient.getByRole('button', { name: 'Stop sharing your screen' }).click()
+  await doctor.getByText(`${PATIENT_NAME} is sharing a screen`).waitFor({ state: 'hidden', timeout: 15_000 })
+  log('share stopped')
+
+  /* Recording, with consent. Decline first, then allow, then the patient stops it. */
+  const askToRecord = async () => {
+    await doctor.getByRole('button', { name: 'Start recording' }).click()
+    return patient.getByRole('dialog').filter({ hasText: `Dr. ${DOCTOR_NAME} wants to record this visit.` })
+  }
+  let dialog = await askToRecord()
+  await dialog.waitFor({ timeout: 10_000 })
+  await shot(patient, '09-patient-consent')
+  await dialog.getByRole('button', { name: 'Decline' }).click()
+  await doctor.getByText(`${PATIENT_NAME} declined recording`).waitFor({ timeout: 10_000 })
+  log('decline reached the doctor, nothing recorded')
+  dialog = await askToRecord()
+  await dialog.getByRole('button', { name: 'Allow' }).click()
+  const pill = (page) => page.getByRole('button', { name: 'Stop recording' }).first()
+  await pill(doctor).waitFor({ timeout: 45_000 })
+  await pill(patient).waitFor({ timeout: 15_000 })
+  log('recording running, pill on both sides')
+  await shot(doctor, '10-doctor-recording')
+  await shot(patient, '11-patient-recording')
+  await patient.waitForTimeout(10_000)
+  await pill(patient).click()
+  await pill(doctor).waitFor({ state: 'hidden', timeout: 20_000 })
+  log('patient stopped the recording')
+
+  /* Reconnect: the patient's network drops for 8s. */
+  await patient.context().setOffline(true)
+  await patient.getByText('Reconnecting...').first().waitFor({ timeout: 15_000 })
+  log('patient sees Reconnecting...')
+  await shot(patient, '12-patient-reconnecting')
+  await patient.waitForTimeout(Number(process.env.OFFLINE_EXTRA ?? 0))
+  await patient.context().setOffline(false)
+  log('patient back online')
+  /* A patient who joined on ask_join reconnects through the lobby; the
+     doctor's client must let them back in without a card. */
+  await patient.getByText('Reconnecting...').first().waitFor({ state: 'hidden', timeout: 30_000 })
+  log('patient reconnected')
+  if (await doctor.getByText(/^Expected:/).isVisible()) throw new Error('reconnect left a knock card')
+  await waitRemoteVideo(patient, 'patient after reconnect')
+  await waitRemoteVideo(doctor, 'doctor after reconnect')
+
+  /* A stranger knocks while the patient is in; the doctor denies. */
+  const stranger = await party('stranger')
+  await stranger.goto(`/v/${visit.roomId}`)
+  await stranger.getByLabel('Your name').fill('Stranger')
+  await stranger.getByRole('button', { name: 'Continue' }).click()
+  await stranger.getByRole('button', { name: /ask to join/i }).click({ timeout: 20_000 })
+  await doctor.getByText('Stranger').first().waitFor({ timeout: 20_000 })
+  await doctor.getByRole('button', { name: 'Deny' }).click()
+  await stranger.getByText('The doctor did not let you in').waitFor({ timeout: 15_000 })
+  log('second knock denied, stranger told')
+  await stranger.context().close()
+
+  /* The admitted patient reloads and comes straight back in. */
+  await patient.reload()
+  await patient.getByRole('button', { name: /join the visit/i }).click({ timeout: 30_000 })
+  await waitRemoteVideo(patient, 'patient after rejoin')
+  if (await doctor.getByText(/^Expected:/).isVisible()) throw new Error('rejoin raised a knock card')
+  log('rejoin skipped the knock')
+
+  /* The doctor ends the visit; the link is dead afterwards. */
+  await doctor.getByRole('button', { name: 'End visit for both of you' }).click()
+  await patient.getByText('Visit ended').first().waitFor({ timeout: 15_000 })
+  log('patient sees Visit ended')
+  await shot(patient, '13-patient-ended')
+  await patient.reload()
+  await patient.getByText('Visit ended').first().waitFor({ timeout: 15_000 })
+  log('the link shows Visit ended after reload')
+
+  await doctor.goto(`/visits/${visit.roomId}`)
+  await doctor.getByText(/Given by the patient/).waitFor({ timeout: 15_000 })
+  log('details page shows the consent')
+  if (process.env.WAIT_RECORDING) {
+    for (let i = 0; i < 30; i++) {
+      await doctor.reload()
+      if (await doctor.locator('video, [data-recording-row]').count()) break
+      if (await doctor.getByText(/\d+:\d\d/).count()) break
+      await doctor.waitForTimeout(10_000)
+    }
+    await shot(doctor, '14-doctor-details')
+    log('recording listed on the details page')
+  }
+
+  log('ALL FLOWS PASSED')
 } catch (err) {
   console.error(`FAILED: ${err.message}`)
   process.exitCode = 1
