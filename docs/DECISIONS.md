@@ -369,6 +369,14 @@ Measured 2026-11-19: patient offline about 5s, back in with video both ways 5.3-
 network returned, and no card on the doctor's side. The doctor must be in the room for this, which
 they are whenever there is a visit to reconnect to.
 
+## Production runs at clinic-by-videosdk.vercel.app
+
+The Vercel project `clinic` serves production at `https://clinic-by-videosdk.vercel.app`. Supabase
+auth's `site_url` points there, and both that origin and `http://localhost:3000` are in
+`additional_redirect_urls`, because `SignIn.tsx` builds the magic-link `emailRedirectTo` from
+`window.location.origin`. A new origin that should sign doctors in has to be added there and pushed
+with `supabase config push`. `[storage.vector]` is off to match the project; the app stores no vectors.
+
 ## What the SDK measured before the features were built
 
 Probed 2026-11-19 on react-sdk 1.3.0, Chrome with fake devices, local `vercel dev`. These are facts
