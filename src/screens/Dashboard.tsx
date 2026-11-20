@@ -181,24 +181,14 @@ export function Dashboard() {
   const lastName = suggestedName(user).split(/\s+/).at(-1)
 
   const band = (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div className="flex min-w-0 flex-col gap-1">
-        <span className="text-sm font-semibold tracking-wide text-accent-strong uppercase">
-          {new Date(now).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
-        </span>
-        <h1 className="text-4xl font-semibold tracking-tight break-words text-ink">
-          {greeting(now)}, Dr. {lastName}
-        </h1>
-        <p className="min-h-5 text-base text-ink-secondary">{summary}</p>
-      </div>
-      <Button
-        size="lg"
-        className={cn('shrink-0 self-start sm:self-auto', TAP)}
-        iconLeft={<RoomIcon name="plus" size={18} />}
-        onClick={() => document.getElementById('patient-name')?.focus()}
-      >
-        New visit
-      </Button>
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="text-sm font-semibold tracking-wide text-accent-strong uppercase">
+        {new Date(now).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
+      </span>
+      <h1 className="text-4xl font-semibold tracking-tight break-words text-ink">
+        {greeting(now)}, Dr. {lastName}
+      </h1>
+      <p className="min-h-5 text-base text-ink-secondary">{summary}</p>
     </div>
   )
 
