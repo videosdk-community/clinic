@@ -50,8 +50,10 @@ export interface ControlBarProps {
   onToggleRecording: () => void
 
   chatOpen: boolean
-  /** Absent where chat is always on screen: the doctor's docked rail. */
+  /** Absent where chat lives in the doctor's side panel instead. */
   onToggleChat?: () => void
+  /** Doctor on tablet and desktop: shows or hides the Patient | Chat panel. */
+  panel?: PanelControl
 
   /** Doctor only. */
   showMe?: ShowMeControl
@@ -59,6 +61,13 @@ export interface ControlBarProps {
   onShowPatient?: () => void
 
   onLeave: () => void
+}
+
+export interface PanelControl {
+  open: boolean
+  /** Messages that arrived while chat was not on screen. */
+  unread: number
+  onToggle: () => void
 }
 
 function recordLabel({ isRecording, recordingPending }: Pick<ControlBarProps, 'isRecording' | 'recordingPending'>) {
@@ -175,6 +184,7 @@ function DesktopControlBar(props: ControlBarProps) {
             <RoomIcon name="chat" size={18} />
           </CtrlBtn>
         )}
+        {props.panel && <PanelBtn {...props.panel} />}
 
         <div className="mx-2 h-6 w-px bg-line" />
 
@@ -350,5 +360,26 @@ function PhoneControlBar(props: ControlBarProps) {
 
       <DevicesSheet open={devicesOpen} onClose={() => setDevicesOpen(false)} />
     </div>
+  )
+}
+
+/* The doctor's side panel toggle. Hiding it gives the patient's video the
+   whole width; a count on the button says a message came in meanwhile. */
+function PanelBtn({ open, unread, onToggle }: PanelControl) {
+  const label = open ? 'Hide side panel' : 'Show side panel'
+  return (
+    <span className="relative">
+      <CtrlBtn label={unread > 0 ? `${label}, ${unread} unread` : label} active={open} onClick={onToggle}>
+        <RoomIcon name="panel" size={18} />
+      </CtrlBtn>
+      {unread > 0 && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-pill bg-accent-mid px-1 text-xs font-semibold text-white"
+        >
+          {unread}
+        </span>
+      )}
+    </span>
   )
 }

@@ -104,9 +104,11 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
 
   /* The patient's chat column, and the doctor's chat sheet on a phone. */
   const [chatOpen, setChatOpen] = useState(false)
-  /* The doctor's rail: which tab, and on a tablet whether it is out. */
+  /* The doctor's rail: which tab, and whether it is out. Until the doctor
+     chooses, it is out on desktop (docked) and in on a tablet (it would cover
+     the stage). Hiding it gives the patient's video the whole width. */
   const [railTab, setRailTab] = useState<RailTab>('patient')
-  const [railOpen, setRailOpen] = useState(false)
+  const [railChoice, setRailChoice] = useState<boolean | null>(null)
   const [patientSheet, setPatientSheet] = useState(false)
 
   /* Asked only when a Back gesture is caught, never by the Leave button. */
@@ -284,18 +286,14 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
   const knocker = knocks[0]
   const when = scheduledLabel(session.scheduledAt)
 
-  /* The doctor's chat lives in the rail on tablet and desktop. Desktop docks
-     it and needs no button; a tablet slides it out over the stage, opening on
-     Chat since that is what the button says. */
-  const toggleChat = isPhone
-    ? () => setChatOpen(!chatOpen)
-    : deviceClass === 'tablet'
-      ? () => {
-          const closing = railOpen && railTab === 'chat'
-          setRailOpen(!closing)
-          if (!closing) setRailTab('chat')
-        }
-      : undefined
+  const railOpen = railChoice ?? deviceClass === 'desktop'
+  /* Everything up to here has been read whenever the rail's Chat tab is on
+     screen. Counted here, not in the rail, so the panel toggle can carry it
+     while the rail is hidden. */
+  const [railSeen, setRailSeen] = useState(messages.length)
+  const railReading = railOpen && railTab === 'chat'
+  if (railReading && railSeen !== messages.length) setRailSeen(messages.length)
+  const railUnread = railReading ? 0 : messages.slice(railSeen).filter((m) => m.senderId !== localId).length
 
   const pip = isPhone ? 'aspect-[3/4] w-24' : 'aspect-video w-44 lg:w-56'
 
@@ -523,8 +521,14 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
                the recording begins on the patient's allow, see
                useRecordingConsent. */
             onToggleRecording={recording ? actions.stopRecording : consent.request}
-            chatOpen={isDoctor && !isPhone ? railOpen && railTab === 'chat' : chatOpen}
-            onToggleChat={isDoctor ? toggleChat : () => setChatOpen(!chatOpen)}
+            chatOpen={chatOpen}
+            /* The doctor's chat is in the side panel on tablet and desktop. */
+            onToggleChat={isDoctor && !isPhone ? undefined : () => setChatOpen(!chatOpen)}
+            panel={
+              isDoctor && !isPhone
+                ? { open: railOpen, unread: railUnread, onToggle: () => setRailChoice(!railOpen) }
+                : undefined
+            }
             showMe={
               isDoctor
                 ? {
@@ -542,10 +546,11 @@ export function VisitRoom({ session, roomId, reconnecting, onLeave }: VisitRoomP
         {isDoctor && !isPhone ? (
           <RoomRail
             overlay={deviceClass === 'tablet'}
-            open={deviceClass === 'desktop' || railOpen}
+            open={railOpen}
             tab={railTab}
             onTab={setRailTab}
-            onHide={() => setRailOpen(false)}
+            onHide={() => setRailChoice(false)}
+            unread={railUnread}
             messages={chatMessages}
             onSend={send}
             patient={patientPanel}

@@ -179,15 +179,21 @@ while the doctor's client still shows close look until Done.
 
 ## The doctor's room has a Patient panel
 
-On desktop the doctor's room is the video stage plus an always-open 360px panel with two tabs:
+On desktop the doctor's room is the video stage plus a 360px side panel with two tabs:
 
 - **Patient:** name, "Name matched" when the admitted patient's typed name matches the booking, the
   intake, and "This visit" (recording state, their connection level, which camera they are on).
 - **Chat:** the same chat panel as before, with an unread count on the tab while Patient is open.
 
 Telehealth doctors work from the patient's context, and a call screen with only video and buttons
-reads as a generic meeting app. On a tablet the panel is an overlay toggled from the control bar; on
-a phone chat stays a sheet and patient details open from More. The patient's own room is unchanged:
+reads as a generic meeting app.
+
+**The panel is optional.** It is open by default on desktop and closed on a tablet, where it floats
+over the stage. A panel button in the control bar, and a close button in the panel itself, hide it
+so the patient's video takes the whole width. While it is hidden, a message from the patient puts an
+unread count on that button ("Show side panel, 1 unread"). On a phone chat stays a sheet and patient
+details open from More. Driven 2026-11-19: hiding the panel widened the stage at 1280px and the
+count appeared for a message sent meanwhile. The patient's own room is unchanged:
 stage, self view and the old chat panel.
 
 While nobody is in, the stage shows who is expected or knocking, the scheduled time and Copy visit

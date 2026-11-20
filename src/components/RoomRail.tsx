@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type ReactNode } from 'react'
+import { type KeyboardEvent, type ReactNode } from 'react'
 import { ChatPanel } from './ChatPanel'
 import { PainBar } from './PainBar'
 import { RoomIcon } from './icons'
@@ -13,8 +13,9 @@ import { useNetworkQuality, useParticipantView } from '../sdk'
    Two tabs, Patient first, because the doctor's question in a consult is
    "who is this and why are they here", and the intake answers it. Chat keeps
    an unread count on its tab while Patient is showing. Docked on desktop and
-   always there; on a tablet it floats over the stage like the patient's chat
-   column, so the video is never squeezed. Phone has no rail: chat stays a
+   open by default; on a tablet it floats over the stage like the patient's
+   chat column, so the video is never squeezed. Either way the doctor can hide
+   it to give the patient's video the whole width. Phone has no rail: chat stays a
    sheet and PatientPanel opens in a sheet of its own.
 
    Both tab panels stay mounted, so a half-typed message survives a look at
@@ -30,18 +31,14 @@ export interface RoomRailProps {
   tab: RailTab
   onTab: (tab: RailTab) => void
   onHide: () => void
+  /** Unread chat messages, counted by the room so the panel toggle can show them too. */
+  unread: number
   messages: ChatMessage[]
   onSend: (text: string) => Promise<void>
   patient: PatientPanelProps
 }
 
-export function RoomRail({ overlay, open, tab, onTab, onHide, messages, onSend, patient }: RoomRailProps) {
-  /* Everything up to here has been read whenever the Chat tab is on screen. */
-  const [seen, setSeen] = useState(messages.length)
-  const reading = open && tab === 'chat'
-  if (reading && seen !== messages.length) setSeen(messages.length)
-  const unread = reading ? 0 : messages.slice(seen).filter((m) => !m.mine).length
-
+export function RoomRail({ overlay, open, tab, onTab, onHide, unread, messages, onSend, patient }: RoomRailProps) {
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
     const next = tab === 'patient' ? 'chat' : 'patient'
@@ -51,7 +48,8 @@ export function RoomRail({ overlay, open, tab, onTab, onHide, messages, onSend, 
 
   return (
     <aside
-      data-room-rail={overlay ? 'overlay' : 'docked'}
+      /* Only while shown: the toast rule centres on the stage beside it. */
+      data-room-rail={open ? (overlay ? 'overlay' : 'docked') : undefined}
       aria-label="Visit panel"
       className={cn(
         'shrink-0 flex-col border-l border-line bg-card',
@@ -76,11 +74,9 @@ export function RoomRail({ overlay, open, tab, onTab, onHide, messages, onSend, 
             )}
           </RailTabButton>
         </div>
-        {overlay && (
-          <IconButton variant="ghost" size="sm" className="mb-2.5 ml-auto" aria-label="Hide panel" onClick={onHide}>
-            <RoomIcon name="close" size={16} />
-          </IconButton>
-        )}
+        <IconButton variant="ghost" size="sm" className="mb-2.5 ml-auto" aria-label="Hide side panel" onClick={onHide}>
+          <RoomIcon name="close" size={16} />
+        </IconButton>
       </div>
 
       <div

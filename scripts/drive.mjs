@@ -218,6 +218,21 @@ try {
   await doctor.getByText(`${PATIENT_NAME} is sharing a screen`).waitFor({ state: 'hidden', timeout: 15_000 })
   log('share stopped')
 
+  /* The doctor hides the side panel to give the patient's video the whole
+     width; a message that arrives meanwhile shows on the toggle. */
+  const rail = doctor.getByRole('complementary', { name: 'Visit panel' })
+  const stageWidth = () => doctor.locator('main').first().evaluate((el) => el.getBoundingClientRect().width)
+  const withRail = await stageWidth()
+  await doctor.getByRole('button', { name: 'Hide side panel' }).first().click()
+  await rail.waitFor({ state: 'hidden', timeout: 5_000 })
+  if ((await stageWidth()) < withRail + 300) throw new Error('hiding the panel did not widen the stage')
+  await say(patient, 'patient', 'Can you see me better now?')
+  await doctor.getByRole('button', { name: 'Show side panel, 1 unread' }).waitFor({ timeout: 10_000 })
+  await shot(doctor, '06b-doctor-panel-hidden')
+  await doctor.getByRole('button', { name: /^Show side panel/ }).click()
+  await rail.waitFor({ timeout: 5_000 })
+  log('doctor hid the side panel, saw the unread count, brought it back')
+
   /* In-call device switching: the doctor picks the other camera and mic. */
   const pickOther = async (chevron, menuName) => {
     await doctor.getByRole('button', { name: chevron }).click()
